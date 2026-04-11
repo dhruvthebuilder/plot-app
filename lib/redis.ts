@@ -3,11 +3,14 @@ import { Redis } from '@upstash/redis'
 // Redis is optional — if not configured, caching is skipped gracefully
 export let redis: Redis | null = null
 
-if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
-  redis = new Redis({
-    url: process.env.UPSTASH_REDIS_REST_URL,
-    token: process.env.UPSTASH_REDIS_REST_TOKEN,
-  })
+try {
+  const url = process.env.UPSTASH_REDIS_REST_URL?.trim()
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN?.trim()
+  if (url && token && url.startsWith('https://')) {
+    redis = new Redis({ url, token })
+  }
+} catch {
+  // Redis unavailable — caching will be skipped
 }
 
 // Cache keys — centralise all key patterns here
