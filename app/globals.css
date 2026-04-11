@@ -49,3 +49,9 @@
 /* Scrollbar */
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 2px; }
+
+/* Landing page floating chip animation */
+@keyframes plotFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
