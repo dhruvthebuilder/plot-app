@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Nav } from '@/components/layout/Nav'
 import { cn } from '@/lib/utils'
 import type { PlanType } from '@/lib/plans'
+import { CheckoutButton } from '@/components/upgrade/CheckoutButton'
 
 interface Chart {
   id: string
@@ -146,12 +147,12 @@ export function DashboardClient({ plan, profile, charts, chartCount, chartLimit,
                   Upgrade to Pro for $1/mo · 50 charts · no watermark · SVG export
                 </div>
               </div>
-              <Link
-                href="/?plan=pro#pricing"
-                className="text-[12px] font-medium px-3 py-1.5 bg-white text-text rounded-[6px] hover:bg-[#F0F0F0] transition-all flex-shrink-0 ml-4"
+              <CheckoutButton
+                plan="pro"
+                className="text-[12px] font-medium px-3 py-1.5 bg-white text-text rounded-[6px] hover:bg-[#F0F0F0] transition-all flex-shrink-0 ml-4 cursor-pointer"
               >
                 Upgrade →
-              </Link>
+              </CheckoutButton>
             </div>
           )}
 

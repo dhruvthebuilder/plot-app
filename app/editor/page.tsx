@@ -64,7 +64,7 @@ function EditorContent() {
   const [exportRes, setExportRes]             = useState<1 | 2 | 3>(1)
   const [exportBg, setExportBg]               = useState<'white' | 'offwhite' | 'dark' | 'transparent'>('white')
   const [isSaving, setIsSaving]               = useState(false)
-  const [savedFlash, setSavedFlash]           = useState(false)
+  const [saveState, setSaveState]             = useState<'idle' | 'saved' | 'error'>('idle')
 
   const chartRef = useRef<ChartJS | null>(null)
 
@@ -188,8 +188,9 @@ function EditorContent() {
   const handleSave = useCallback(async () => {
     if (!parsedTable || !chartType) return
     setIsSaving(true)
+    setSaveState('idle')
     try {
-      await fetch('/api/charts', {
+      const res = await fetch('/api/charts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -200,10 +201,18 @@ function EditorContent() {
           config: { color, opacity, showGrid, smooth, cornerRadius },
         }),
       })
-      setSavedFlash(true)
-      setTimeout(() => setSavedFlash(false), 1800)
-    } catch { /* silent */ }
-    setIsSaving(false)
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error || `HTTP ${res.status}`)
+      }
+      setSaveState('saved')
+      setTimeout(() => setSaveState('idle'), 1800)
+    } catch {
+      setSaveState('error')
+      setTimeout(() => setSaveState('idle'), 2500)
+    } finally {
+      setIsSaving(false)
+    }
   }, [parsedTable, chartType, chartTitle, color, opacity, showGrid, smooth, cornerRadius])
 
   const handleExportPNG = useCallback(() => {
@@ -280,12 +289,14 @@ function EditorContent() {
               disabled={isSaving}
               className={cn(
                 'text-[13px] font-medium px-4 py-[7px] rounded-[8px] border transition-all',
-                savedFlash
+                saveState === 'saved'
                   ? 'border-green bg-green-bg text-green'
+                  : saveState === 'error'
+                  ? 'border-[#E24B4A] bg-[#FEF2F2] text-[#E24B4A]'
                   : 'border-border-strong text-text hover:bg-bg hover:border-text'
               )}
             >
-              {savedFlash ? 'Saved ✓' : isSaving ? 'Saving…' : 'Save'}
+              {saveState === 'saved' ? 'Saved ✓' : saveState === 'error' ? 'Failed — retry' : isSaving ? 'Saving…' : 'Save'}
             </button>
           )}
         </div>

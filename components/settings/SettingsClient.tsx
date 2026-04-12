@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
 import type { PlanType } from '@/lib/plans'
+import { CheckoutButton } from '@/components/upgrade/CheckoutButton'
 
 const BRAND_COLORS = ['#1D6EE8', '#111111', '#F0A500', '#10B981', '#E24B4A', '#7C3AED', '#EC4899']
 
@@ -257,13 +258,21 @@ export function SettingsClient({ plan, profile, brandKit, chartCount, chartLimit
                   {planLabel[plan]}
                 </span>
               </div>
-              {plan !== 'biz' && (
-                <Link
-                  href="/?plan=biz#pricing"
-                  className="text-[12px] font-medium text-blue hover:text-blue-dark transition-colors"
+              {plan === 'free' && (
+                <CheckoutButton
+                  plan="pro"
+                  className="text-[12px] font-medium text-blue hover:text-blue-dark transition-colors bg-transparent border-none cursor-pointer"
+                >
+                  Upgrade to Pro →
+                </CheckoutButton>
+              )}
+              {plan === 'pro' && (
+                <CheckoutButton
+                  plan="biz"
+                  className="text-[12px] font-medium text-blue hover:text-blue-dark transition-colors bg-transparent border-none cursor-pointer"
                 >
                   Upgrade to Business →
-                </Link>
+                </CheckoutButton>
               )}
             </div>
 
