@@ -253,6 +253,20 @@ export function buildBaseOptions(vis: VisualConfig): any {
         cornerRadius: 6,
         displayColors: false,
       },
+      datalabels: {
+        display: vis.showLabels,
+        color: '#555',
+        font: { family: FONT, size: 10, weight: 'bold' as const },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        formatter: (value: any) => {
+          const n = Number(value)
+          return isNaN(n) ? value : tickFmt(n, fmt)
+        },
+        anchor: 'end' as const,
+        align: 'top' as const,
+        offset: 2,
+        clip: false,
+      },
     },
     scales: {
       x: {
@@ -296,6 +310,24 @@ function parseNums(arr: string[]): number[] {
 // ── Chart config builder — all 30 types ───────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+function avgLineDataset(vals: number[], n: number, fmt: string, color = '#F0A500'): object {
+  if (!vals.length) return {}
+  const avg = vals.reduce((a, b) => a + b, 0) / vals.length
+  return {
+    type: 'line',
+    label: `Avg: ${tickFmt(avg, fmt)}`,
+    data: Array(n).fill(avg),
+    borderColor: color,
+    borderWidth: 1.5,
+    borderDash: [5, 4],
+    pointRadius: 0,
+    fill: false,
+    tension: 0,
+    datalabels: { display: false },
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function buildChartConfig(
   table: ParsedTable,
   mappings: Record<string, number>,
@@ -306,6 +338,7 @@ export function buildChartConfig(
   const color = vis.color
   const op = vis.opacity / 100
   const radius = vis.radius
+  const fmt = vis.tickFormat || 'auto'
 
   const labels = getCol(table, mappings, 'x')
   const vals = parseNums(getCol(table, mappings, 'y'))
@@ -313,22 +346,18 @@ export function buildChartConfig(
 
   // ── BAR VERTICAL ──
   if (ct === 'bar-vertical') {
-    return {
-      type: 'bar',
-      data: { labels, datasets: [{ data: vals, backgroundColor: hexToRgba(color, op), borderRadius: radius, borderSkipped: false, hoverBackgroundColor: hexToRgba(color, Math.min(op + 0.15, 1)) }] },
-      options: buildBaseOptions(vis),
-    }
+    const datasets: object[] = [{ data: vals, backgroundColor: hexToRgba(color, op), borderRadius: radius, borderSkipped: false, hoverBackgroundColor: hexToRgba(color, Math.min(op + 0.15, 1)) }]
+    if (vis.showAvgLine) datasets.push(avgLineDataset(vals, labels.length, fmt))
+    return { type: 'bar', data: { labels, datasets }, options: buildBaseOptions(vis) }
   }
 
   // ── BAR HORIZONTAL ──
   if (ct === 'bar-horizontal') {
     const opts = buildBaseOptions(vis)
     opts.indexAxis = 'y'
-    return {
-      type: 'bar',
-      data: { labels, datasets: [{ data: vals, backgroundColor: hexToRgba(color, op), borderRadius: radius, borderSkipped: false }] },
-      options: opts,
-    }
+    const datasets: object[] = [{ data: vals, backgroundColor: hexToRgba(color, op), borderRadius: radius, borderSkipped: false }]
+    if (vis.showAvgLine) datasets.push(avgLineDataset(vals, labels.length, fmt))
+    return { type: 'bar', data: { labels, datasets }, options: opts }
   }
 
   // ── BAR GROUPED / STACKED ──
@@ -360,11 +389,9 @@ export function buildChartConfig(
 
   // ── LINE ──
   if (ct === 'line') {
-    return {
-      type: 'line',
-      data: { labels, datasets: [{ data: vals, borderColor: color, borderWidth: 2.5, backgroundColor: hexToRgba(color, 0.1), fill: false, tension: vis.smooth ? 0.4 : 0, pointBackgroundColor: color, pointBorderColor: '#fff', pointBorderWidth: 2, pointRadius: 4, pointHoverRadius: 6 }] },
-      options: buildBaseOptions(vis),
-    }
+    const datasets: object[] = [{ data: vals, borderColor: color, borderWidth: 2.5, backgroundColor: hexToRgba(color, 0.1), fill: false, tension: vis.smooth ? 0.4 : 0, pointBackgroundColor: color, pointBorderColor: '#fff', pointBorderWidth: 2, pointRadius: 4, pointHoverRadius: 6 }]
+    if (vis.showAvgLine) datasets.push(avgLineDataset(vals, labels.length, fmt))
+    return { type: 'line', data: { labels, datasets }, options: buildBaseOptions(vis) }
   }
 
   // ── MULTI-LINE ──
@@ -384,11 +411,9 @@ export function buildChartConfig(
 
   // ── AREA ──
   if (ct === 'area') {
-    return {
-      type: 'line',
-      data: { labels, datasets: [{ data: vals, borderColor: color, borderWidth: 2, backgroundColor: hexToRgba(color, 0.18), fill: true, tension: vis.smooth ? 0.4 : 0, pointBackgroundColor: color, pointRadius: 3 }] },
-      options: buildBaseOptions(vis),
-    }
+    const datasets: object[] = [{ data: vals, borderColor: color, borderWidth: 2, backgroundColor: hexToRgba(color, 0.18), fill: true, tension: vis.smooth ? 0.4 : 0, pointBackgroundColor: color, pointRadius: 3 }]
+    if (vis.showAvgLine) datasets.push(avgLineDataset(vals, labels.length, fmt))
+    return { type: 'line', data: { labels, datasets }, options: buildBaseOptions(vis) }
   }
 
   // ── STACKED AREA ──

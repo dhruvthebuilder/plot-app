@@ -1,8 +1,10 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { Chart as ChartJS, registerables } from 'chart.js'
+import ChartDataLabels from 'chartjs-plugin-datalabels'
 import {
   parseCSV,
   detectColTypes,
@@ -17,7 +19,7 @@ import {
   type VisualConfig,
 } from '@/lib/chartEngine'
 
-ChartJS.register(...registerables)
+ChartJS.register(...registerables, ChartDataLabels)
 
 const SWATCHES = ['#1D6EE8', '#111111', '#F0A500', '#10B981', '#E24B4A', '#7C3AED', '#EC4899']
 const BG_MAP: Record<string, string> = { white: '#FFFFFF', offwhite: '#F7F3EC', dark: '#111111', transparent: 'transparent' }
@@ -30,8 +32,20 @@ const DEFAULT_VIS: VisualConfig = {
 }
 
 export default function EditorPage() {
+  return (
+    <Suspense>
+      <EditorInner />
+    </Suspense>
+  )
+}
+
+function EditorInner() {
+  const searchParams = useSearchParams()
+  const chartId = searchParams.get('id')
+
   // ── Navigation ──
   const [currentStep, setCurrentStep] = useState<1 | 2>(1)
+  const [savedChartId, setSavedChartId] = useState<string | null>(null)
 
   // ── Data ──
   const [table, setTable] = useState<ParsedTable | null>(null)
@@ -61,6 +75,7 @@ export default function EditorPage() {
   const [openSections, setOpenSections] = useState({
     type: true, mapping: true, visual: true, axes: false, annotations: false, text: false,
   })
+  const [typeSearch, setTypeSearch] = useState('')
 
   // ── Save ──
   const [isSaving, setIsSaving] = useState(false)
@@ -73,13 +88,14 @@ export default function EditorPage() {
 
   // ── Build/rebuild chart ──
   useEffect(() => {
+    if (currentStep !== 2) return
     if (!canvasRef.current || !table) return
     if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null }
     const cfg = buildChartConfig(table, mappings, chartType, vis)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     chartRef.current = new ChartJS(canvasRef.current, cfg as any)
     return () => { chartRef.current?.destroy(); chartRef.current = null }
-  }, [table, mappings, chartType, vis])
+  }, [currentStep, table, mappings, chartType, vis])
 
   // ── Global paste listener ──
   useEffect(() => {
@@ -92,6 +108,39 @@ export default function EditorPage() {
     document.addEventListener('paste', handler)
     return () => document.removeEventListener('paste', handler)
   }, [])
+
+  // ── Load saved chart ──
+  useEffect(() => {
+    if (!chartId) return
+    ;(async () => {
+      try {
+        const res = await fetch(`/api/charts/${chartId}`)
+        if (!res.ok) return
+        const chart = await res.json()
+        const cfg = chart.config as {
+          vis?: VisualConfig; chartTitle?: string; chartSubtitle?: string
+          chartSource?: string; mappings?: Record<string, number>
+          chartType?: ChartType; table?: ParsedTable; incWatermark?: boolean
+        }
+        if (!cfg) return
+        if (cfg.table) {
+          const types = detectColTypes(cfg.table)
+          setTable(cfg.table)
+          setColTypes(types)
+        }
+        if (cfg.chartType) setChartType(cfg.chartType)
+        if (cfg.mappings) setMappings(cfg.mappings)
+        if (cfg.vis) setVis(cfg.vis)
+        if (cfg.chartTitle !== undefined) setChartTitle(cfg.chartTitle)
+        if (cfg.chartSubtitle !== undefined) setChartSubtitle(cfg.chartSubtitle)
+        if (cfg.chartSource !== undefined) setChartSource(cfg.chartSource)
+        if (cfg.incWatermark !== undefined) setIncWatermark(cfg.incWatermark)
+        setSavedChartId(chartId)
+        setCurrentStep(2)
+      } catch { /* ignore */ }
+    })()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chartId])
 
   // ── Data processing ──
   const processText = useCallback((text: string) => {
@@ -137,16 +186,22 @@ export default function EditorPage() {
     setIsSaving(true)
     setSaveState('idle')
     try {
-      const res = await fetch('/api/charts', {
-        method: 'POST',
+      const payload = {
+        title: chartTitle || 'Untitled chart',
+        chart_type: chartType,
+        config: { vis, chartTitle, chartSubtitle, chartSource, mappings, chartType, table, incWatermark },
+      }
+      const isUpdate = !!savedChartId
+      const res = await fetch(isUpdate ? `/api/charts/${savedChartId}` : '/api/charts', {
+        method: isUpdate ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: chartTitle || 'Untitled chart',
-          chart_type: chartType,
-          config: { vis, chartTitle, chartSubtitle, chartSource, mappings, chartType, csvData: '' },
-        }),
+        body: JSON.stringify(payload),
       })
       if (!res.ok) { setSaveState('error'); return }
+      if (!isUpdate) {
+        const data = await res.json()
+        if (data?.id) setSavedChartId(data.id)
+      }
       setSaveState('saved')
       setTimeout(() => setSaveState('idle'), 1800)
     } catch {
@@ -423,8 +478,15 @@ export default function EditorPage() {
             <SectionHeader label="Chart type" open={openSections.type} onToggle={() => toggleSection('type')} />
             {openSections.type && (
               <div style={{ padding: '12px 14px 16px' }}>
+                <input
+                  type="text"
+                  placeholder="Search chart types..."
+                  value={typeSearch}
+                  onChange={e => setTypeSearch(e.target.value)}
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '6px 8px', border: '1px solid #E0E0E0', borderRadius: 6, fontSize: 11, fontFamily: 'Helvetica, Arial, sans-serif', background: '#F7F7F7', outline: 'none', marginBottom: 10 }}
+                />
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 4 }}>
-                  {CHART_TYPES.map(ct => (
+                  {CHART_TYPES.filter(ct => !typeSearch || ct.label.toLowerCase().includes(typeSearch.toLowerCase()) || ct.group.toLowerCase().includes(typeSearch.toLowerCase())).map(ct => (
                     <button
                       key={ct.id}
                       onClick={() => selectChartType(ct.id)}
