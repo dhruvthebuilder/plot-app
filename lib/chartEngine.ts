@@ -454,6 +454,7 @@ export function buildChartConfig(
         plugins: {
           legend: { display: true, position: 'right', labels: { font: { family: FONT, size: 10 }, color: '#888', boxWidth: 10 } },
           tooltip: { backgroundColor: '#111', titleFont: { family: FONT, size: 12, weight: 'bold' }, bodyFont: { family: FONT, size: 11 }, padding: 10, cornerRadius: 6, displayColors: false },
+          datalabels: { display: vis.showLabels, color: '#fff', font: { family: FONT, size: 10, weight: 'bold' as const }, formatter: (v: number, ctx: { dataset: { data: number[] } }) => { const sum = ctx.dataset.data.reduce((a: number, b: number) => a + b, 0); return sum ? Math.round(v / sum * 100) + '%' : '' } },
         },
       },
     }
@@ -469,6 +470,7 @@ export function buildChartConfig(
         plugins: {
           legend: { display: true, position: 'right', labels: { font: { family: FONT, size: 10 }, color: '#888', boxWidth: 10 } },
           tooltip: { backgroundColor: '#111', titleFont: { family: FONT, size: 12, weight: 'bold' }, bodyFont: { family: FONT, size: 11 }, padding: 10, cornerRadius: 6, displayColors: false },
+          datalabels: { display: vis.showLabels, color: '#fff', font: { family: FONT, size: 10, weight: 'bold' as const }, formatter: (v: number, ctx: { dataset: { data: number[] } }) => { const sum = ctx.dataset.data.reduce((a: number, b: number) => a + b, 0); return sum ? Math.round(v / sum * 100) + '%' : '' } },
         },
       },
     }
@@ -485,6 +487,7 @@ export function buildChartConfig(
         plugins: {
           legend: { display: true, position: 'right', labels: { font: { family: FONT, size: 10 }, color: '#888', boxWidth: 10 } },
           tooltip: { backgroundColor: '#111', titleFont: { family: FONT, size: 12, weight: 'bold' }, bodyFont: { family: FONT, size: 11 }, padding: 10, cornerRadius: 6, displayColors: false },
+          datalabels: { display: false },
         },
       },
     }
@@ -596,6 +599,7 @@ export function buildChartConfig(
         plugins: {
           legend: { display: false },
           tooltip: { backgroundColor: '#111', titleFont: { family: FONT, size: 12, weight: 'bold' }, bodyFont: { family: FONT, size: 11 }, padding: 10, cornerRadius: 6, displayColors: false },
+          datalabels: { display: false },
         },
       },
     }
@@ -626,7 +630,7 @@ export function buildChartConfig(
     return {
       type: 'doughnut',
       data: { labels: ['Value', 'Remaining'], datasets: [{ data: [pct * 100, (1 - pct) * 100], backgroundColor: [hexToRgba(color, op), '#F0F0F0'], borderColor: ['transparent', 'transparent'], borderWidth: 0 }] },
-      options: { responsive: true, maintainAspectRatio: false, cutout: '70%', rotation: -90, circumference: 180, plugins: { legend: { display: false }, tooltip: { enabled: false } } },
+      options: { responsive: true, maintainAspectRatio: false, cutout: '70%', rotation: -90, circumference: 180, plugins: { legend: { display: false }, tooltip: { enabled: false }, datalabels: { display: false } } },
     }
   }
 

@@ -86,16 +86,34 @@ function EditorInner() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // ── Build/rebuild chart ──
+  // Keep a ref to the latest vis so the recreation effect always uses current values
+  const visRef = useRef(vis)
+  useEffect(() => { visRef.current = vis }, [vis])
+
+  // ── Effect 1: Full recreation when structure changes (chart type, data, mappings) ──
   useEffect(() => {
-    if (currentStep !== 2) return
-    if (!canvasRef.current || !table) return
+    if (currentStep !== 2 || !canvasRef.current || !table) return
     if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null }
-    const cfg = buildChartConfig(table, mappings, chartType, vis)
+    const cfg = buildChartConfig(table, mappings, chartType, visRef.current)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     chartRef.current = new ChartJS(canvasRef.current, cfg as any)
     return () => { chartRef.current?.destroy(); chartRef.current = null }
-  }, [currentStep, table, mappings, chartType, vis])
+    // vis intentionally excluded — handled by effect 2
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep, table, mappings, chartType])
+
+  // ── Effect 2: In-place update for visual config changes (no recreation) ──
+  useEffect(() => {
+    if (!chartRef.current || !table) return
+    const cfg = buildChartConfig(table, mappings, chartType, vis)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    chartRef.current.data = cfg.data as any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    chartRef.current.options = cfg.options as any
+    chartRef.current.update('active')
+    // table/mappings/chartType intentionally excluded — structural changes handled by effect 1
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vis])
 
   // ── Global paste listener ──
   useEffect(() => {
