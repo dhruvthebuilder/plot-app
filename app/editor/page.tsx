@@ -1,192 +1,139 @@
 'use client'
 
-import { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react'
-import { useRouter } from 'next/navigation'
-import { Chart as ChartJS, registerables } from 'chart.js'
-import { Chart } from 'react-chartjs-2'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
-import { cn } from '@/lib/utils'
+import { Chart as ChartJS, registerables } from 'chart.js'
 import {
-  parseRawText,
-  detectColumnType,
+  parseCSV,
+  detectColTypes,
   suggestChartType,
-  buildChartData,
-  computeStats,
-  mapToChartJSType,
+  autoAssignMappings,
+  buildChartConfig,
   CHART_TYPES,
-  CHART_COLUMN_ROLES,
-  UNSUPPORTED_CHART_TYPES,
+  ROLES,
+  type ChartType,
+  type ColType,
   type ParsedTable,
-  type ColumnType,
   type VisualConfig,
 } from '@/lib/chartEngine'
 
 ChartJS.register(...registerables)
 
-const COLOR_PALETTE = ['#1D6EE8', '#111111', '#F0A500', '#10B981', '#E24B4A', '#7C3AED']
+const SWATCHES = ['#1D6EE8', '#111111', '#F0A500', '#10B981', '#E24B4A', '#7C3AED', '#EC4899']
+const BG_MAP: Record<string, string> = { white: '#FFFFFF', offwhite: '#F7F3EC', dark: '#111111', transparent: 'transparent' }
 
-// Group CHART_TYPES by group for the <optgroup> select
-const GROUPED_CHART_TYPES = CHART_TYPES.reduce<Record<string, typeof CHART_TYPES[number][]>>(
-  (acc, ct) => {
-    if (!acc[ct.group]) acc[ct.group] = []
-    acc[ct.group].push(ct)
-    return acc
-  },
-  {}
-)
+const DEFAULT_VIS: VisualConfig = {
+  color: '#1D6EE8', opacity: 85, radius: 4, bg: 'white',
+  showGrid: true, smooth: false, logScale: false,
+  showLabels: false, showAvgLine: false, showLegend: false,
+  xLabel: '', yLabel: '', tickFormat: 'auto',
+}
 
-function EditorContent() {
-  const router = useRouter()
+export default function EditorPage() {
+  // ── Navigation ──
+  const [currentStep, setCurrentStep] = useState<1 | 2>(1)
 
-  // ── Step 1: Data ─────────────────────────────────────────────────────────
-  const [parsedTable, setParsedTable] = useState<ParsedTable | null>(null)
-  const [isDragging, setIsDragging]   = useState(false)
-  const [isLoading, setIsLoading]     = useState(false)
-  const [dataError, setDataError]     = useState<string | null>(null)
+  // ── Data ──
+  const [table, setTable] = useState<ParsedTable | null>(null)
+  const [colTypes, setColTypes] = useState<ColType[]>([])
+  const [chartType, setChartType] = useState<ChartType>('bar-vertical')
+  const [mappings, setMappings] = useState<Record<string, number>>({})
+  const [dragOver, setDragOver] = useState(false)
+  const [pasteText, setPasteText] = useState('')
+
+  // ── Visual config ──
+  const [vis, setVis] = useState<VisualConfig>(DEFAULT_VIS)
+
+  // ── Text overlays ──
+  const [chartTitle, setChartTitle] = useState('')
+  const [chartSubtitle, setChartSubtitle] = useState('')
+  const [chartSource, setChartSource] = useState('')
+  const [incWatermark, setIncWatermark] = useState(true)
+
+  // ── Export modal ──
+  const [showExport, setShowExport] = useState(false)
+  const [expFormat, setExpFormat] = useState<'png' | 'svg'>('png')
+  const [expRes, setExpRes] = useState(1)
+  const [expBg, setExpBg] = useState<'white' | 'offwhite' | 'dark' | 'transparent'>('white')
+  const [incTitle, setIncTitle] = useState(true)
+
+  // ── Left panel sections ──
+  const [openSections, setOpenSections] = useState({
+    type: true, mapping: true, visual: true, axes: false, annotations: false, text: false,
+  })
+
+  // ── Save ──
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveState, setSaveState] = useState<'idle' | 'saved' | 'error'>('idle')
+
+  // ── Chart refs ──
+  const chartRef = useRef<ChartJS | null>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // ── Step 2: Configuration ────────────────────────────────────────────────
-  const [columnTypes, setColumnTypes]             = useState<ColumnType[]>([])
-  const [chartType, setChartType]                 = useState('')
-  const [suggestedType, setSuggestedType]         = useState('')
-  const [columnAssignments, setColumnAssignments] = useState<Record<number, number>>({})
-
-  // ── Visual config ────────────────────────────────────────────────────────
-  const [color, setColor]               = useState('#1D6EE8')
-  const [opacity, setOpacity]           = useState(85)
-  const [showGrid, setShowGrid]         = useState(true)
-  const [smooth, setSmooth]             = useState(false)
-  const [cornerRadius, setCornerRadius] = useState(4)
-  const [chartTitle, setChartTitle]     = useState('')
-
-  // ── Export ───────────────────────────────────────────────────────────────
-  const [showExportModal, setShowExportModal] = useState(false)
-  const [exportRes, setExportRes]             = useState<1 | 2 | 3>(1)
-  const [exportBg, setExportBg]               = useState<'white' | 'offwhite' | 'dark' | 'transparent'>('white')
-  const [isSaving, setIsSaving]               = useState(false)
-  const [saveState, setSaveState]             = useState<'idle' | 'saved' | 'error'>('idle')
-
-  const chartRef = useRef<ChartJS | null>(null)
-
-  // ── Paste handler (window-level, skip if typing in input/textarea) ────────
+  // ── Build/rebuild chart ──
   useEffect(() => {
-    const handlePaste = (e: ClipboardEvent) => {
+    if (!canvasRef.current || !table) return
+    if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null }
+    const cfg = buildChartConfig(table, mappings, chartType, vis)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    chartRef.current = new ChartJS(canvasRef.current, cfg as any)
+    return () => { chartRef.current?.destroy(); chartRef.current = null }
+  }, [table, mappings, chartType, vis])
+
+  // ── Global paste listener ──
+  useEffect(() => {
+    const handler = (e: ClipboardEvent) => {
       const active = document.activeElement
-      if (active?.tagName === 'INPUT' || active?.tagName === 'TEXTAREA') return
+      if (active && (active.tagName === 'TEXTAREA' || active.tagName === 'INPUT')) return
       const text = e.clipboardData?.getData('text/plain')
-      if (text?.trim()) processRawText(text)
+      if (text?.trim()) processText(text)
     }
-    window.addEventListener('paste', handlePaste)
-    return () => window.removeEventListener('paste', handlePaste)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    document.addEventListener('paste', handler)
+    return () => document.removeEventListener('paste', handler)
   }, [])
 
-  // ── Core data processing ─────────────────────────────────────────────────
-  const processRawText = useCallback((raw: string) => {
-    setIsLoading(true)
-    setDataError(null)
-    try {
-      const table = parseRawText(raw)
-      handleDataLoaded(table)
-    } catch (err) {
-      setDataError(err instanceof Error ? err.message : 'Could not parse data')
-    }
-    setIsLoading(false)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const handleDataLoaded = useCallback((table: ParsedTable) => {
-    setParsedTable(table)
-    setDataError(null)
-
-    const types = table.headers.map((_, i) =>
-      detectColumnType(table.rows.map(row => row[i] || ''))
-    )
-    setColumnTypes(types)
-
-    const suggested = suggestChartType(table, types)
-    setSuggestedType(suggested)
+  // ── Data processing ──
+  const processText = useCallback((text: string) => {
+    const t = parseCSV(text)
+    if (!t || t.rowCount < 1) return
+    const types = detectColTypes(t)
+    const suggested = suggestChartType(t, types)
+    setTable(t)
+    setColTypes(types)
     setChartType(suggested)
-
-    const roles = CHART_COLUMN_ROLES[suggested] || []
-    const assignments: Record<number, number> = {}
-    roles.forEach((_, i) => { assignments[i] = i < table.colCount ? i : -1 })
-    setColumnAssignments(assignments)
+    setMappings(autoAssignMappings(t, suggested))
   }, [])
 
-  const handleFileUpload = useCallback(async (file: File) => {
-    setIsLoading(true)
-    setDataError(null)
+  const handleFile = useCallback(async (file: File) => {
     const ext = file.name.split('.').pop()?.toLowerCase()
-    if (ext === 'csv' || ext === 'tsv' || ext === 'txt') {
-      const reader = new FileReader()
-      reader.onload = e => processRawText(e.target?.result as string)
-      reader.readAsText(file)
-    } else if (ext === 'xlsx' || ext === 'xls') {
-      try {
-        const XLSX = await import('xlsx')
-        const reader = new FileReader()
-        reader.onload = e => {
-          const data = new Uint8Array(e.target?.result as ArrayBuffer)
-          const workbook = XLSX.read(data, { type: 'array' })
-          const sheet = workbook.Sheets[workbook.SheetNames[0]]
-          const csv = XLSX.utils.sheet_to_csv(sheet)
-          processRawText(csv)
-        }
-        reader.readAsArrayBuffer(file)
-      } catch {
-        setDataError('Failed to parse Excel file')
-        setIsLoading(false)
-      }
+    if (ext === 'xlsx' || ext === 'xls') {
+      const XLSX = await import('xlsx')
+      const buf = await file.arrayBuffer()
+      const wb = XLSX.read(buf)
+      const ws = wb.Sheets[wb.SheetNames[0]]
+      const csv = XLSX.utils.sheet_to_csv(ws)
+      processText(csv)
     } else {
-      setDataError('Unsupported file type. Use CSV, TSV, TXT, or XLSX.')
-      setIsLoading(false)
+      const text = await file.text()
+      processText(text)
     }
-  }, [processRawText])
+  }, [processText])
 
-  const handleChartTypeChange = useCallback((newType: string) => {
-    setChartType(newType)
-    if (!parsedTable) return
-    const roles = CHART_COLUMN_ROLES[newType] || []
-    const assignments: Record<number, number> = {}
-    roles.forEach((_, i) => { assignments[i] = i < parsedTable.colCount ? i : -1 })
-    setColumnAssignments(assignments)
-  }, [parsedTable])
+  // ── Chart type selection ──
+  const selectChartType = (id: ChartType) => {
+    setChartType(id)
+    if (table) setMappings(autoAssignMappings(table, id))
+  }
 
-  const handleReset = useCallback(() => {
-    setParsedTable(null)
-    setColumnTypes([])
-    setChartType('')
-    setSuggestedType('')
-    setColumnAssignments({})
-    setDataError(null)
-    setChartTitle('')
-  }, [])
+  // ── Section toggle ──
+  const toggleSection = (key: keyof typeof openSections) => {
+    setOpenSections(s => ({ ...s, [key]: !s[key] }))
+  }
 
-  // ── Chart config (memoised — no effects needed) ───────────────────────────
-  const chartConfig = useMemo(() => {
-    if (!parsedTable || !chartType || UNSUPPORTED_CHART_TYPES.has(chartType)) return null
-    const config: VisualConfig = { color, opacity, showGrid, smooth, cornerRadius }
-    return buildChartData(parsedTable, columnTypes, chartType, columnAssignments, config)
-  }, [parsedTable, columnTypes, chartType, columnAssignments, color, opacity, showGrid, smooth, cornerRadius])
-
-  // Stats derived from Y-axis column assignment
-  const stats = useMemo(() => {
-    if (!parsedTable || !chartType) return null
-    const roleIndex = chartType === 'histogram' ? 0 : 1
-    const colIndex  = columnAssignments[roleIndex]
-    if (colIndex === undefined || colIndex === -1) return null
-    const values = parsedTable.rows
-      .map(row => parseFloat((row[colIndex] ?? '').replace(/,/g, '').trim()))
-      .filter(n => !isNaN(n))
-    return computeStats(values)
-  }, [parsedTable, chartType, columnAssignments])
-
-  // Key forces Chart recreation on type change
-  const chartKey = chartType
-
-  // ── Export ────────────────────────────────────────────────────────────────
-  const handleSave = useCallback(async () => {
-    if (!parsedTable || !chartType) return
+  // ── Save ──
+  const handleSave = async () => {
+    if (!table) return
     setIsSaving(true)
     setSaveState('idle')
     try {
@@ -196,75 +143,101 @@ function EditorContent() {
         body: JSON.stringify({
           title: chartTitle || 'Untitled chart',
           chart_type: chartType,
-          raw_data: '',
-          data_json: { headers: parsedTable.headers, rows: parsedTable.rows.slice(0, 5) },
-          config: { color, opacity, showGrid, smooth, cornerRadius },
+          config: { vis, chartTitle, chartSubtitle, chartSource, mappings, chartType, csvData: '' },
         }),
       })
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        throw new Error(body.error || `HTTP ${res.status}`)
-      }
+      if (!res.ok) { setSaveState('error'); return }
       setSaveState('saved')
       setTimeout(() => setSaveState('idle'), 1800)
     } catch {
       setSaveState('error')
-      setTimeout(() => setSaveState('idle'), 2500)
     } finally {
       setIsSaving(false)
     }
-  }, [parsedTable, chartType, chartTitle, color, opacity, showGrid, smooth, cornerRadius])
+  }
 
-  const handleExportPNG = useCallback(() => {
-    const canvas = chartRef.current?.canvas
+  // ── Export ──
+  const downloadPNG = () => {
+    const canvas = canvasRef.current
     if (!canvas) return
-    const scale = exportRes
+    const scale = expRes
     const w = canvas.width * scale
     const h = canvas.height * scale
+    const bgColors: Record<string, string> = { white: '#FFFFFF', offwhite: '#F7F3EC', dark: '#111111', transparent: 'transparent' }
     const off = document.createElement('canvas')
-    off.width = w
-    off.height = h
+    off.width = w; off.height = h
     const ctx = off.getContext('2d')!
-    if (exportBg !== 'transparent') {
-      ctx.fillStyle = exportBg === 'white' ? '#FFFFFF' : exportBg === 'offwhite' ? '#F7F3EC' : '#111111'
-      ctx.fillRect(0, 0, w, h)
-    }
-    ctx.imageSmoothingEnabled = true
-    ctx.imageSmoothingQuality = 'high'
-    ctx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, w, h)
-    if (chartTitle) {
+    if (expBg !== 'transparent') { ctx.fillStyle = bgColors[expBg] || '#fff'; ctx.fillRect(0, 0, w, h) }
+    ctx.drawImage(canvas, 0, 0, w, h)
+    if (incTitle && chartTitle) {
       ctx.save()
-      ctx.fillStyle = exportBg === 'dark' ? '#FFFFFF' : '#111111'
-      ctx.font = `bold ${18 * scale}px Syne, sans-serif`
-      ctx.fillText(chartTitle, 20 * scale, 26 * scale)
+      ctx.fillStyle = expBg === 'dark' ? '#fff' : '#111'
+      ctx.font = `bold ${20 * scale}px Helvetica,Arial,sans-serif`
+      ctx.fillText(chartTitle, 20 * scale, 28 * scale)
+      if (chartSubtitle) {
+        ctx.font = `${12 * scale}px Helvetica,Arial,sans-serif`
+        ctx.fillStyle = expBg === 'dark' ? '#aaa' : '#888'
+        ctx.fillText(chartSubtitle, 20 * scale, 44 * scale)
+      }
       ctx.restore()
     }
-    ctx.save()
-    ctx.font = `${9 * scale}px "IBM Plex Mono", monospace`
-    ctx.fillStyle = exportBg === 'dark' ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)'
-    ctx.fillText('Made with Plot · plot.so', 16 * scale, h - 10 * scale)
-    ctx.restore()
-    const filename = `${(chartTitle || 'chart').replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}-${Date.now()}.png`
-    off.toBlob(blob => {
-      if (!blob) return
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.download = filename
-      a.href = url
-      a.click()
-      setTimeout(() => URL.revokeObjectURL(url), 1000)
-    }, 'image/png')
-    setShowExportModal(false)
-  }, [chartRef, exportRes, exportBg, chartTitle])
+    if (incTitle && chartSource) {
+      ctx.save()
+      ctx.font = `${10 * scale}px Helvetica,Arial,sans-serif`
+      ctx.fillStyle = expBg === 'dark' ? 'rgba(255,255,255,.5)' : 'rgba(0,0,0,.35)'
+      ctx.fillText(chartSource, 20 * scale, h - 16 * scale)
+      ctx.restore()
+    }
+    if (incWatermark) {
+      ctx.save()
+      ctx.font = `${9 * scale}px Helvetica,Arial,sans-serif`
+      ctx.fillStyle = expBg === 'dark' ? 'rgba(255,255,255,.25)' : 'rgba(0,0,0,.18)'
+      ctx.fillText('Made with Plot · plot.so', w - 160 * scale, h - 10 * scale)
+      ctx.restore()
+    }
+    const link = document.createElement('a')
+    link.download = `plot-${(chartTitle || 'chart').replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.png`
+    link.href = off.toDataURL('image/png')
+    link.click()
+    setShowExport(false)
+  }
 
-  const showStep3 = !!parsedTable && !!chartType
+  const downloadSVG = () => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const base64 = canvas.toDataURL('image/png')
+    const titleLine = incTitle && chartTitle
+      ? `<text x="16" y="24" font-family="Helvetica,Arial,sans-serif" font-size="18" font-weight="bold" fill="${expBg === 'dark' ? '#fff' : '#111'}">${chartTitle}</text>` +
+        (chartSubtitle ? `<text x="16" y="40" font-family="Helvetica,Arial,sans-serif" font-size="12" fill="${expBg === 'dark' ? '#aaa' : '#888'}">${chartSubtitle}</text>` : '')
+      : ''
+    const bgFill = expBg === 'dark' ? '#111' : expBg === 'offwhite' ? '#F7F3EC' : expBg === 'transparent' ? 'none' : '#fff'
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${canvas.width}" height="${canvas.height}">
+  <rect width="${canvas.width}" height="${canvas.height}" fill="${bgFill}"/>
+  ${titleLine}
+  <image href="${base64}" x="0" y="0" width="${canvas.width}" height="${canvas.height}"/>
+  ${incWatermark ? `<text x="${canvas.width - 120}" y="${canvas.height - 8}" font-family="Helvetica,Arial,sans-serif" font-size="9" fill="rgba(0,0,0,.25)">Made with Plot</text>` : ''}
+</svg>`
+    const blob = new Blob([svg], { type: 'image/svg+xml' })
+    const link = document.createElement('a')
+    link.download = `plot-${(chartTitle || 'chart').replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.svg`
+    link.href = URL.createObjectURL(blob)
+    link.click()
+    setShowExport(false)
+  }
+
+  const suggestedType = table ? suggestChartType(table, colTypes) : 'bar-vertical'
+  const suggestedLabel = CHART_TYPES.find(t => t.id === suggestedType)?.label || 'Bar'
+  const cardBg = BG_MAP[vis.bg] || '#fff'
+  const cardText = vis.bg === 'dark' ? '#fff' : '#111'
 
   return (
-    <div className="min-h-screen bg-bg flex flex-col">
-      {/* ── Nav ─────────────────────────────────────────────────────────── */}
-      <nav className="bg-surface border-b border-border h-[52px] flex items-center justify-between px-6 sticky top-0 z-50 flex-shrink-0">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="w-[28px] h-[28px] bg-text rounded-[6px] flex items-center justify-center">
+    <div style={{ fontFamily: 'Helvetica, Arial, sans-serif', minHeight: '100vh', background: '#F7F7F7', display: 'flex', flexDirection: 'column' }}>
+
+      {/* ── Nav ── */}
+      <nav style={{ background: '#fff', borderBottom: '1px solid #E8E8E8', height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', position: 'sticky', top: 0, zIndex: 50 }}>
+        {/* Logo */}
+        <Link href="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none', color: 'inherit' }}>
+          <div style={{ width: 28, height: 28, background: '#111', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
               <rect x="1" y="8" width="3" height="7" fill="white" rx="1" />
               <rect x="6" y="4" width="3" height="11" fill="white" rx="1" />
@@ -274,465 +247,417 @@ function EditorContent() {
               <circle cx="12.5" cy="0.5" r="1.5" fill="#1D6EE8" />
             </svg>
           </div>
-          <span className="text-[16px] font-extrabold tracking-[-0.03em]">Plot</span>
+          <span style={{ fontSize: 16, fontWeight: 800, letterSpacing: '-0.03em' }}>Plot</span>
         </Link>
-        <div className="flex items-center gap-2">
-          <Link
-            href="/dashboard"
-            className="text-[13px] font-medium px-4 py-[7px] rounded-[8px] border border-border-strong text-text hover:bg-bg hover:border-text transition-all"
-          >
-            ← Dashboard
-          </Link>
-          {showStep3 && (
+
+        {/* Step tabs */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          {(['01 Add data', '02 Customise', '03 Export'] as const).map((label, i) => {
+            const step = i + 1
+            const isActive = currentStep === step || (step === 3 && showExport)
+            const isDone = currentStep > step
+            return (
+              <div key={label} style={{
+                fontSize: 11, fontWeight: 600, padding: '4px 12px', borderRadius: 6,
+                color: isActive ? '#111' : isDone ? '#10B981' : '#AAA',
+                background: isActive ? '#F0F0F0' : 'transparent',
+              }}>
+                {label}
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Action buttons */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {currentStep === 2 && (
+            <button onClick={() => setCurrentStep(1)} style={navBtnStyle}>← Back</button>
+          )}
+          {currentStep === 2 && (
             <button
               onClick={handleSave}
               disabled={isSaving}
-              className={cn(
-                'text-[13px] font-medium px-4 py-[7px] rounded-[8px] border transition-all',
-                saveState === 'saved'
-                  ? 'border-green bg-green-bg text-green'
-                  : saveState === 'error'
-                  ? 'border-[#E24B4A] bg-[#FEF2F2] text-[#E24B4A]'
-                  : 'border-border-strong text-text hover:bg-bg hover:border-text'
-              )}
+              style={{
+                ...navBtnStyle,
+                background: saveState === 'saved' ? '#F0FDF4' : saveState === 'error' ? '#FEF2F2' : '#fff',
+                color: saveState === 'saved' ? '#16A34A' : saveState === 'error' ? '#E24B4A' : '#111',
+                borderColor: saveState === 'saved' ? '#BBF7D0' : saveState === 'error' ? '#FCA5A5' : '#D8D8D8',
+              }}
             >
               {saveState === 'saved' ? 'Saved ✓' : saveState === 'error' ? 'Failed — retry' : isSaving ? 'Saving…' : 'Save'}
+            </button>
+          )}
+          {currentStep === 1 && (
+            <button
+              onClick={() => { if (table) setCurrentStep(2) }}
+              disabled={!table}
+              style={{ ...navBtnStyle, background: table ? '#111' : '#E8E8E8', color: table ? '#fff' : '#AAA', borderColor: table ? '#111' : '#E8E8E8', cursor: table ? 'pointer' : 'not-allowed' }}
+            >
+              Next →
+            </button>
+          )}
+          {currentStep === 2 && (
+            <button onClick={() => setShowExport(true)} style={{ ...navBtnStyle, background: '#1D6EE8', color: '#fff', borderColor: '#1D6EE8' }}>
+              ↓ Export
             </button>
           )}
         </div>
       </nav>
 
-      {/* ── Main content ──────────────────────────────────────────────────── */}
-      <div className="flex-1 py-10 px-6 overflow-auto">
-        <div className="max-w-[860px] mx-auto flex flex-col gap-10">
+      {/* ── Screen 1: Data input ── */}
+      {currentStep === 1 && (
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px 20px', overflowY: 'auto' }}>
+          <div style={{ width: '100%', maxWidth: 580 }}>
 
-          {/* ══ STEP 1: DATA INPUT ══════════════════════════════════════════ */}
-          <section>
-            <div className="flex items-center justify-between mb-4">
-              <h1 className="text-[22px] font-bold tracking-[-0.02em]">
-                Let&apos;s create your chart
-              </h1>
-              {parsedTable && (
-                <button
-                  type="button"
-                  onClick={handleReset}
-                  className="w-7 h-7 bg-surface border border-border rounded-[6px] flex items-center justify-center text-[13px] text-muted hover:text-text hover:border-border-strong transition-all"
-                  title="Reset"
-                >
-                  ✕
-                </button>
-              )}
+            {/* Drop zone */}
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={e => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) handleFile(f) }}
+              style={{
+                border: `2px dashed ${dragOver ? '#1D6EE8' : '#D8D8D8'}`,
+                borderRadius: 12,
+                padding: '32px 20px',
+                textAlign: 'center',
+                cursor: 'pointer',
+                background: dragOver ? '#EEF4FF' : '#fff',
+                transition: 'all .15s',
+                marginBottom: 16,
+              }}
+            >
+              <div style={{ fontSize: 28, marginBottom: 8, color: '#888' }}>↑</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#333', marginBottom: 4 }}>Drop a file here</div>
+              <div style={{ fontSize: 11, color: '#AAA' }}>CSV, TSV, or Excel (.xlsx)</div>
+              <input ref={fileInputRef} type="file" accept=".csv,.tsv,.txt,.xlsx,.xls" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
             </div>
 
-            {!parsedTable ? (
-              <>
-                {/* Drop zone */}
-                <div
-                  onDragOver={e => { e.preventDefault(); setIsDragging(true) }}
-                  onDragLeave={() => setIsDragging(false)}
-                  onDrop={e => {
-                    e.preventDefault()
-                    setIsDragging(false)
-                    const file = e.dataTransfer.files[0]
-                    if (file) handleFileUpload(file)
-                  }}
-                  onClick={() => fileInputRef.current?.click()}
-                  className={cn(
-                    'w-full h-[160px] rounded-[8px] border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-colors',
-                    isDragging
-                      ? 'border-blue bg-blue-bg'
-                      : isLoading
-                      ? 'border-border bg-[#F5F0EB]'
-                      : dataError
-                      ? 'border-[#E24B4A] bg-[#FEF2F2]'
-                      : 'border-[#C8C8C8] bg-[#F5F0EB] hover:border-blue hover:bg-blue-bg'
-                  )}
-                >
-                  {isLoading ? (
-                    <div className="flex flex-col items-center gap-2">
-                      <div className="w-5 h-5 border-2 border-blue border-t-transparent rounded-full animate-spin" />
-                      <span className="font-mono text-[11px] text-muted">Reading file…</span>
-                    </div>
-                  ) : (
-                    <span className="font-sans text-[15px] font-medium text-muted text-center px-6">
-                      Ctrl V or Upload a file by clicking here
-                    </span>
-                  )}
+            {/* Divider */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+              <div style={{ flex: 1, height: 1, background: '#E8E8E8' }} />
+              <span style={{ fontSize: 11, color: '#AAA', whiteSpace: 'nowrap' }}>or paste directly</span>
+              <div style={{ flex: 1, height: 1, background: '#E8E8E8' }} />
+            </div>
+
+            {/* Paste textarea */}
+            <textarea
+              rows={7}
+              placeholder="Paste CSV or tab-separated data here..."
+              value={pasteText}
+              onChange={e => { setPasteText(e.target.value); if (e.target.value.trim()) { processText(e.target.value) } else { setTable(null) } }}
+              style={{
+                width: '100%', boxSizing: 'border-box', padding: '10px 12px',
+                border: '1px solid #D8D8D8', borderRadius: 8, fontSize: 12,
+                fontFamily: 'Helvetica, Arial, sans-serif', resize: 'vertical',
+                outline: 'none', background: '#fff', color: '#111',
+                lineHeight: 1.6,
+              }}
+            />
+
+            {/* Data preview */}
+            {table && (
+              <div style={{ marginTop: 20 }}>
+                {/* Inference bar */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, padding: '8px 12px', background: '#F0F7FF', borderRadius: 8, fontSize: 12, color: '#444' }}>
+                  <span dangerouslySetInnerHTML={{ __html: `Looks like <b>${colTypes[0] === 'date' ? 'a time series' : 'categorical data'}</b> — suggesting <b>${suggestedLabel} chart</b>` }} />
+                  <span style={{ marginLeft: 'auto', fontSize: 10, background: '#1D6EE8', color: '#fff', padding: '2px 7px', borderRadius: 10, fontWeight: 600 }}>auto-detected</span>
                 </div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".csv,.tsv,.txt,.xlsx,.xls"
-                  className="hidden"
-                  onChange={e => {
-                    const file = e.target.files?.[0]
-                    if (file) handleFileUpload(file)
-                    e.target.value = ''
-                  }}
-                />
-                {dataError && (
-                  <p className="mt-2 font-mono text-[11px] text-[#E24B4A]">{dataError}</p>
-                )}
-                <p className="mt-2 font-mono text-[10px] text-faint">
-                  Accepts CSV, TSV, TXT, or Excel (.xlsx) — paste with Ctrl V from anywhere
-                </p>
-              </>
-            ) : (
-              /* Data preview table */
-              <div className="bg-surface border border-border rounded-[8px] overflow-hidden">
-                <div className="flex items-center justify-between px-4 py-2 border-b border-border">
-                  <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-muted">
-                    {parsedTable.rowCount - 1} rows · {parsedTable.colCount} columns
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleReset}
-                    className="font-mono text-[10px] text-blue hover:text-blue-dark transition-colors"
-                  >
-                    Change data →
-                  </button>
+
+                {/* Stats */}
+                <div style={{ fontSize: 11, color: '#888', marginBottom: 8 }}>
+                  {table.colCount} cols · {table.rowCount} rows
                 </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
+
+                {/* Preview table */}
+                <div style={{ overflowX: 'auto', borderRadius: 8, border: '1px solid #E8E8E8' }}>
+                  <table style={{ width: '100%', fontSize: 11, borderCollapse: 'collapse' }}>
                     <thead>
-                      <tr>
-                        {parsedTable.headers.map((h, i) => (
-                          <th
-                            key={i}
-                            className="font-mono text-[10px] uppercase tracking-[0.06em] text-muted px-4 py-2 text-left border-b border-border bg-bg"
-                          >
-                            {h || `Column ${i + 1}`}
-                          </th>
+                      <tr style={{ background: '#F7F7F7' }}>
+                        {table.headers.map((h, i) => (
+                          <th key={i} style={{ padding: '7px 10px', textAlign: 'left', fontWeight: 600, color: '#555', borderBottom: '1px solid #E8E8E8', whiteSpace: 'nowrap' }}>{h || `Col ${i + 1}`}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {parsedTable.rows.slice(0, 5).map((row, ri) => (
-                        <tr key={ri} className={ri % 2 === 1 ? 'bg-bg' : ''}>
+                      {table.rows.slice(0, 5).map((row, ri) => (
+                        <tr key={ri} style={{ borderBottom: ri < 4 && ri < table.rows.length - 1 ? '1px solid #F0F0F0' : 'none' }}>
                           {row.map((cell, ci) => (
-                            <td key={ci} className="font-mono text-[11px] text-text px-4 py-[7px] border-b border-border last:border-b-0">
-                              {cell}
-                            </td>
+                            <td key={ci} style={{ padding: '6px 10px', color: '#333' }}>{cell}</td>
                           ))}
                         </tr>
                       ))}
+                      {table.rowCount > 5 && (
+                        <tr>
+                          <td colSpan={table.colCount} style={{ padding: '7px 10px', color: '#AAA', fontSize: 10, textAlign: 'center' }}>
+                            +{table.rowCount - 5} more rows
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
-                {parsedTable.rows.length > 5 && (
-                  <p className="font-mono text-[10px] text-muted px-4 py-2 border-t border-border">
-                    … and {parsedTable.rows.length - 5} more rows
-                  </p>
-                )}
+
+                {/* Use this button */}
+                <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
+                  <button
+                    onClick={() => setCurrentStep(2)}
+                    style={{ padding: '9px 20px', background: '#111', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'Helvetica, Arial, sans-serif' }}
+                  >
+                    Use this →
+                  </button>
+                </div>
               </div>
             )}
-          </section>
+          </div>
+        </div>
+      )}
 
-          {/* ══ STEP 2: CUSTOMISE ═══════════════════════════════════════════ */}
-          {parsedTable && (
-            <section className="reveal-section">
-              <h2 className="text-[18px] font-bold tracking-[-0.02em] mb-4">Customise</h2>
+      {/* ── Screen 2: Customise ── */}
+      {currentStep === 2 && (
+        <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
 
-              <div className="grid grid-cols-2 gap-5">
-                {/* Left: Column types */}
-                <div className="bg-surface border border-border rounded-[8px] p-4">
-                  <div className="font-mono text-[10px] uppercase tracking-[0.08em] text-muted mb-3">
-                    Select Column Types
-                  </div>
-                  {parsedTable.headers.map((header, i) => (
-                    <div key={i} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                      <span className="font-mono text-[12px] text-text">{header || `Column ${i + 1}`}</span>
-                      <select
-                        value={columnTypes[i] || 'text'}
-                        onChange={e => {
-                          const updated = [...columnTypes]
-                          updated[i] = e.target.value as ColumnType
-                          setColumnTypes(updated)
-                        }}
-                        className="font-mono text-[11px] px-2 py-1 border border-border rounded-[6px] bg-bg text-text outline-none focus:border-blue cursor-pointer"
-                      >
-                        <option value="date">Date</option>
-                        <option value="integer">Integer</option>
-                        <option value="decimal">Decimal</option>
-                        <option value="text">Text</option>
-                      </select>
-                    </div>
+          {/* Left panel */}
+          <div style={{ width: 272, minWidth: 272, background: '#fff', borderRight: '1px solid #E8E8E8', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+
+            {/* ── Section: Chart type ── */}
+            <SectionHeader label="Chart type" open={openSections.type} onToggle={() => toggleSection('type')} />
+            {openSections.type && (
+              <div style={{ padding: '12px 14px 16px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 4 }}>
+                  {CHART_TYPES.map(ct => (
+                    <button
+                      key={ct.id}
+                      onClick={() => selectChartType(ct.id)}
+                      title={`${ct.label} (${ct.group})`}
+                      style={{
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+                        padding: '7px 4px', borderRadius: 6, cursor: 'pointer',
+                        border: chartType === ct.id ? '1.5px solid #1D6EE8' : '1.5px solid transparent',
+                        background: chartType === ct.id ? '#EEF4FF' : '#F7F7F7',
+                        color: chartType === ct.id ? '#1D6EE8' : '#666',
+                        fontSize: 9, fontWeight: 600, fontFamily: 'Helvetica, Arial, sans-serif',
+                        transition: 'all .1s',
+                        position: 'relative',
+                      }}
+                    >
+                      <span dangerouslySetInnerHTML={{ __html: ct.icon }} style={{ display: 'flex', width: 16, height: 12 }} />
+                      <span style={{ fontSize: 8.5, lineHeight: 1, textAlign: 'center' }}>{ct.label}</span>
+                      {ct.id === suggestedType && (
+                        <span style={{ position: 'absolute', top: 2, right: 2, width: 5, height: 5, background: '#1D6EE8', borderRadius: '50%' }} />
+                      )}
+                    </button>
                   ))}
                 </div>
+                <div style={{ fontSize: 9, color: '#AAA', marginTop: 8 }}>
+                  <span style={{ display: 'inline-block', width: 5, height: 5, background: '#1D6EE8', borderRadius: '50%', marginRight: 4, verticalAlign: 'middle' }} />
+                  auto-suggested for your data
+                </div>
+              </div>
+            )}
 
-                {/* Right: Chart specifications */}
-                <div className="bg-surface border border-border rounded-[8px] p-4">
-                  <div className="font-mono text-[10px] uppercase tracking-[0.08em] text-muted mb-3">
-                    Select Chart Specifications
-                  </div>
-
-                  {/* Chart type row */}
-                  <div className="flex items-center justify-between py-2 border-b border-border">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-[12px] text-text">Chart Type</span>
-                      {suggestedType === chartType && (
-                        <span className="font-mono text-[9px] bg-blue-bg text-blue-dark px-[6px] py-[2px] rounded-[4px]">
-                          auto-detected
-                        </span>
-                      )}
-                    </div>
+            {/* ── Section: Data mapping ── */}
+            <SectionHeader label="Data mapping" open={openSections.mapping} onToggle={() => toggleSection('mapping')} />
+            {openSections.mapping && (
+              <div style={{ padding: '12px 14px 16px' }}>
+                {(ROLES[chartType] || []).map(role => (
+                  <div key={role.key} style={{ marginBottom: 10 }}>
+                    <label style={{ display: 'block', fontSize: 10, color: '#888', marginBottom: 4, fontWeight: 600 }}>{role.label}</label>
                     <select
-                      value={chartType}
-                      onChange={e => handleChartTypeChange(e.target.value)}
-                      className="font-mono text-[11px] px-2 py-1 border border-border rounded-[6px] bg-bg text-text outline-none focus:border-blue cursor-pointer max-w-[180px]"
+                      value={mappings[role.key] ?? -1}
+                      onChange={e => setMappings(m => ({ ...m, [role.key]: +e.target.value }))}
+                      style={{ width: '100%', padding: '7px 8px', border: '1px solid #E0E0E0', borderRadius: 6, fontSize: 11, fontFamily: 'Helvetica, Arial, sans-serif', background: '#fff', color: '#111', outline: 'none', cursor: 'pointer' }}
                     >
-                      {Object.entries(GROUPED_CHART_TYPES).map(([group, types]) => (
-                        <optgroup key={group} label={group}>
-                          {types.map(t => (
-                            <option key={t.value} value={t.value}>{t.label}</option>
-                          ))}
-                        </optgroup>
+                      <option value={-1}>— none —</option>
+                      {(table?.headers || []).map((h, i) => (
+                        <option key={i} value={i}>{h || `Column ${i + 1}`}</option>
                       ))}
                     </select>
                   </div>
-
-                  {/* Column assignment rows */}
-                  {(CHART_COLUMN_ROLES[chartType] || []).map((role, i) => {
-                    const isOptional = role.includes('(opt)')
-                    return (
-                      <div key={i} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                        <span className={cn('font-mono text-[11px]', isOptional ? 'text-muted' : 'text-text')}>
-                          {role}
-                        </span>
-                        <select
-                          value={columnAssignments[i] ?? -1}
-                          onChange={e => setColumnAssignments(prev => ({ ...prev, [i]: Number(e.target.value) }))}
-                          className="font-mono text-[11px] px-2 py-1 border border-border rounded-[6px] bg-bg text-text outline-none focus:border-blue cursor-pointer max-w-[160px]"
-                        >
-                          {isOptional && <option value={-1}>— none —</option>}
-                          {parsedTable.headers.map((h, ci) => (
-                            <option key={ci} value={ci}>{h || `Column ${ci + 1}`}</option>
-                          ))}
-                        </select>
-                      </div>
-                    )
-                  })}
-                </div>
+                ))}
               </div>
-            </section>
-          )}
+            )}
 
-          {/* ══ STEP 3: PREVIEW ═════════════════════════════════════════════ */}
-          {showStep3 && (
-            <section className="reveal-section pb-20">
-              <h2 className="text-[18px] font-bold tracking-[-0.02em] mb-4">Preview</h2>
-
-              {/* Stats strip */}
-              {stats && (
-                <div className="grid grid-cols-3 gap-[10px] mb-4">
-                  {[
-                    { label: 'Total', value: stats.total },
-                    { label: 'Peak',  value: stats.peak },
-                    { label: 'Avg',   value: stats.avg },
-                  ].map(s => (
-                    <div key={s.label} className="bg-surface border border-border rounded-[8px] px-[14px] py-[10px]">
-                      <div className="font-mono text-[9px] uppercase tracking-[0.08em] text-muted mb-1">{s.label}</div>
-                      <div className="font-sans text-[19px] font-bold tracking-[-0.02em]">{s.value}</div>
-                    </div>
+            {/* ── Section: Visual style ── */}
+            <SectionHeader label="Visual style" open={openSections.visual} onToggle={() => toggleSection('visual')} />
+            {openSections.visual && (
+              <div style={{ padding: '12px 14px 16px' }}>
+                {/* Color swatches */}
+                <FieldLabel>Primary color</FieldLabel>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
+                  {SWATCHES.map(c => (
+                    <button key={c} onClick={() => setVis(v => ({ ...v, color: c }))} style={{ width: 24, height: 24, borderRadius: '50%', background: c, border: vis.color === c ? '2.5px solid #111' : '2.5px solid transparent', cursor: 'pointer', transform: vis.color === c ? 'scale(1.15)' : 'scale(1)', transition: 'all .1s' }} />
                   ))}
+                  <input
+                    type="text"
+                    value={vis.color}
+                    onChange={e => setVis(v => ({ ...v, color: e.target.value }))}
+                    style={{ width: 70, padding: '4px 6px', border: '1px solid #E0E0E0', borderRadius: 4, fontSize: 10, fontFamily: 'monospace', background: '#fff', outline: 'none' }}
+                  />
                 </div>
-              )}
-
-              {/* Visual controls bar */}
-              <div className="flex items-center gap-4 mb-4 flex-wrap bg-surface border border-border rounded-[8px] px-4 py-3">
-                {/* Colour dots */}
-                <div className="flex items-center gap-1.5">
-                  {COLOR_PALETTE.map(c => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => setColor(c)}
-                      className={cn(
-                        'w-5 h-5 rounded-full border-2 transition-all',
-                        color === c ? 'border-text scale-110' : 'border-transparent'
-                      )}
-                      style={{ background: c }}
-                    />
-                  ))}
-                </div>
-
-                <div className="w-px h-4 bg-border" />
 
                 {/* Opacity */}
-                <div className="flex items-center gap-1.5">
-                  <span className="font-mono text-[9px] text-muted">Opacity</span>
-                  <input
-                    type="range" min={20} max={100} step={5} value={opacity}
-                    onChange={e => setOpacity(Number(e.target.value))}
-                    className="w-20 h-[3px] bg-border rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-[13px] [&::-webkit-slider-thumb]:h-[13px] [&::-webkit-slider-thumb]:bg-text [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:shadow-[0_0_0_1px_#111]"
-                  />
-                  <span className="font-mono text-[9px] text-muted w-7">{opacity}%</span>
+                <FieldLabel>Opacity — {vis.opacity}%</FieldLabel>
+                <input type="range" min={10} max={100} value={vis.opacity} onChange={e => setVis(v => ({ ...v, opacity: +e.target.value }))} style={{ width: '100%', marginBottom: 12, accentColor: '#1D6EE8' }} />
+
+                {/* Corner radius */}
+                <FieldLabel>Corner radius — {vis.radius}px</FieldLabel>
+                <input type="range" min={0} max={16} value={vis.radius} onChange={e => setVis(v => ({ ...v, radius: +e.target.value }))} style={{ width: '100%', marginBottom: 12, accentColor: '#1D6EE8' }} />
+
+                {/* Background */}
+                <FieldLabel>Background</FieldLabel>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  {(['white', 'offwhite', 'dark', 'transparent'] as const).map(b => (
+                    <button key={b} onClick={() => setVis(v => ({ ...v, bg: b }))} style={{ flex: 1, padding: '5px 0', fontSize: 9, fontWeight: 600, borderRadius: 5, border: vis.bg === b ? '1.5px solid #1D6EE8' : '1.5px solid #E0E0E0', background: vis.bg === b ? '#EEF4FF' : '#fff', color: vis.bg === b ? '#1D6EE8' : '#666', cursor: 'pointer', fontFamily: 'Helvetica, Arial, sans-serif', textTransform: 'capitalize' }}>
+                      {b === 'offwhite' ? 'Off-wh.' : b}
+                    </button>
+                  ))}
                 </div>
-
-                <div className="w-px h-4 bg-border" />
-
-                {/* Grid */}
-                <label className="flex items-center gap-1.5 cursor-pointer">
-                  <span className="font-mono text-[9px] text-muted">Grid</span>
-                  <input
-                    type="checkbox" checked={showGrid}
-                    onChange={e => setShowGrid(e.target.checked)}
-                    className="cursor-pointer accent-[#111111]"
-                  />
-                </label>
-
-                {/* Smooth */}
-                <label className="flex items-center gap-1.5 cursor-pointer">
-                  <span className="font-mono text-[9px] text-muted">Smooth</span>
-                  <input
-                    type="checkbox" checked={smooth}
-                    onChange={e => setSmooth(e.target.checked)}
-                    className="cursor-pointer accent-[#111111]"
-                  />
-                </label>
-
-                <div className="w-px h-4 bg-border" />
-
-                {/* Title */}
-                <input
-                  type="text"
-                  value={chartTitle}
-                  onChange={e => setChartTitle(e.target.value)}
-                  placeholder="Chart title (optional)"
-                  className="ml-auto font-sans text-[12px] px-2.5 py-[5px] border border-border rounded-[6px] bg-bg text-text outline-none focus:border-blue w-48 transition-colors"
-                />
               </div>
+            )}
 
+            {/* ── Section: Axes ── */}
+            <SectionHeader label="Axes" open={openSections.axes} onToggle={() => toggleSection('axes')} />
+            {openSections.axes && (
+              <div style={{ padding: '12px 14px 16px' }}>
+                <FieldLabel>X axis label</FieldLabel>
+                <input value={vis.xLabel} onChange={e => setVis(v => ({ ...v, xLabel: e.target.value }))} placeholder="Label..." style={inputStyle} />
+
+                <FieldLabel>Y axis label</FieldLabel>
+                <input value={vis.yLabel} onChange={e => setVis(v => ({ ...v, yLabel: e.target.value }))} placeholder="Label..." style={{ ...inputStyle, marginBottom: 12 }} />
+
+                <FieldLabel>Tick format</FieldLabel>
+                <select value={vis.tickFormat} onChange={e => setVis(v => ({ ...v, tickFormat: e.target.value as VisualConfig['tickFormat'] }))} style={{ ...inputStyle, marginBottom: 12 }}>
+                  <option value="auto">Auto</option>
+                  <option value="kmb">K, M, B</option>
+                  <option value="inr">₹ INR</option>
+                  <option value="usd">$ USD</option>
+                  <option value="pct">%</option>
+                </select>
+
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <ToggleBtn active={vis.showGrid} onClick={() => setVis(v => ({ ...v, showGrid: !v.showGrid }))}>Grid</ToggleBtn>
+                  <ToggleBtn active={vis.smooth} onClick={() => setVis(v => ({ ...v, smooth: !v.smooth }))}>Smooth</ToggleBtn>
+                  <ToggleBtn active={vis.logScale} onClick={() => setVis(v => ({ ...v, logScale: !v.logScale }))}>Log</ToggleBtn>
+                </div>
+              </div>
+            )}
+
+            {/* ── Section: Annotations ── */}
+            <SectionHeader label="Annotations" open={openSections.annotations} onToggle={() => toggleSection('annotations')} />
+            {openSections.annotations && (
+              <div style={{ padding: '12px 14px 16px' }}>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <ToggleBtn active={vis.showLabels} onClick={() => setVis(v => ({ ...v, showLabels: !v.showLabels }))}>Data labels</ToggleBtn>
+                  <ToggleBtn active={vis.showAvgLine} onClick={() => setVis(v => ({ ...v, showAvgLine: !v.showAvgLine }))}>Avg line</ToggleBtn>
+                  <ToggleBtn active={vis.showLegend} onClick={() => setVis(v => ({ ...v, showLegend: !v.showLegend }))}>Legend</ToggleBtn>
+                </div>
+              </div>
+            )}
+
+            {/* ── Section: Title & text ── */}
+            <SectionHeader label="Title & text" open={openSections.text} onToggle={() => toggleSection('text')} />
+            {openSections.text && (
+              <div style={{ padding: '12px 14px 16px' }}>
+                <FieldLabel>Title</FieldLabel>
+                <input value={chartTitle} onChange={e => setChartTitle(e.target.value)} placeholder="Chart title..." style={inputStyle} />
+
+                <FieldLabel>Subtitle</FieldLabel>
+                <input value={chartSubtitle} onChange={e => setChartSubtitle(e.target.value)} placeholder="Subtitle..." style={inputStyle} />
+
+                <FieldLabel>Source</FieldLabel>
+                <input value={chartSource} onChange={e => setChartSource(e.target.value)} placeholder="Source: ..." style={{ ...inputStyle, marginBottom: 12 }} />
+
+                <ToggleBtn active={incWatermark} onClick={() => setIncWatermark(w => !w)}>Plot watermark</ToggleBtn>
+              </div>
+            )}
+          </div>
+
+          {/* Right preview */}
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 32, overflowY: 'auto', background: '#F0F0F0' }}>
+            <div style={{ width: '100%', maxWidth: 680 }}>
               {/* Chart card */}
-              <div className="bg-surface border border-border rounded-[12px] px-6 py-5">
+              <div style={{ background: cardBg, borderRadius: 12, padding: 24, boxShadow: '0 4px 24px rgba(0,0,0,.08)', color: cardText }}>
                 {chartTitle && (
-                  <div className="text-[18px] font-bold tracking-[-0.02em] mb-4">{chartTitle}</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, marginBottom: chartSubtitle ? 4 : 12, color: cardText }}>{chartTitle}</div>
                 )}
-
-                {UNSUPPORTED_CHART_TYPES.has(chartType) ? (
-                  <div className="h-[360px] flex flex-col items-center justify-center gap-2">
-                    <div className="font-mono text-[11px] text-muted">
-                      {CHART_TYPES.find(t => t.value === chartType)?.label} requires a plugin
-                    </div>
-                    <div className="font-mono text-[10px] text-faint">Coming soon</div>
-                  </div>
-                ) : chartConfig ? (
-                  <div style={{ position: 'relative', height: '360px' }}>
-                    <Chart
-                      key={chartKey}
-                      ref={chartRef}
-                      type={mapToChartJSType(chartType)}
-                      data={chartConfig.data}
-                      options={chartConfig.options}
-                    />
-                  </div>
-                ) : (
-                  <div className="h-[360px] flex items-center justify-center">
-                    <span className="font-mono text-[11px] text-muted">Assign columns to see the chart</span>
-                  </div>
+                {chartSubtitle && (
+                  <div style={{ fontSize: 12, color: vis.bg === 'dark' ? '#aaa' : '#888', marginBottom: 12 }}>{chartSubtitle}</div>
                 )}
-
-                <div className="flex items-center justify-between pt-3 mt-3 border-t border-border">
-                  <span className="font-mono text-[9px] text-faint">
-                    Made with <strong className="text-muted">Plot</strong>
-                  </span>
-                  <span className="font-mono text-[9px] text-faint">
-                    {parsedTable.rows.length} data points
-                  </span>
+                <div style={{ height: 340, position: 'relative' }}>
+                  <canvas ref={canvasRef} style={{ width: '100%', height: '100%' }} />
                 </div>
+                {chartSource && (
+                  <div style={{ fontSize: 10, color: vis.bg === 'dark' ? 'rgba(255,255,255,.5)' : 'rgba(0,0,0,.4)', marginTop: 8 }}>{chartSource}</div>
+                )}
+                {incWatermark && (
+                  <div style={{ fontSize: 9, color: vis.bg === 'dark' ? 'rgba(255,255,255,.2)' : 'rgba(0,0,0,.18)', marginTop: 4, textAlign: 'right' }}>Made with Plot · plot.so</div>
+                )}
               </div>
-            </section>
-          )}
+            </div>
+          </div>
         </div>
-      </div>
-
-      {/* ── Fixed Export button ───────────────────────────────────────────── */}
-      {showStep3 && (
-        <button
-          onClick={() => setShowExportModal(true)}
-          className="fixed bottom-6 right-8 font-sans text-[13px] font-semibold text-white bg-text px-5 py-3 rounded-[8px] hover:bg-[#333] transition-all shadow-[0_4px_12px_rgba(0,0,0,0.2)]"
-        >
-          ↓ Export
-        </button>
       )}
 
-      {/* ── Export modal ─────────────────────────────────────────────────── */}
-      {showExportModal && (
+      {/* ── Export modal ── */}
+      {showExport && (
         <div
-          className="fixed inset-0 bg-black/40 flex items-center justify-center z-[500]"
-          onClick={e => { if (e.target === e.currentTarget) setShowExportModal(false) }}
+          onClick={e => { if (e.target === e.currentTarget) setShowExport(false) }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
-          <div className="bg-surface border border-border rounded-[12px] w-[460px] overflow-hidden">
-            <div className="px-6 pt-5 flex items-center justify-between">
-              <span className="text-[16px] font-bold tracking-[-0.02em]">Export chart</span>
-              <button
-                type="button"
-                onClick={() => setShowExportModal(false)}
-                className="w-[26px] h-[26px] rounded-full bg-bg border border-border flex items-center justify-center text-[12px] text-muted hover:text-text transition-colors"
-              >
-                ✕
-              </button>
+          <div style={{ background: '#fff', borderRadius: 12, padding: 28, width: 400, fontFamily: 'Helvetica, Arial, sans-serif', boxShadow: '0 20px 60px rgba(0,0,0,.2)' }}>
+            <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 20 }}>Export chart</div>
+
+            {/* Format */}
+            <FieldLabel>Format</FieldLabel>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
+              {(['png', 'svg'] as const).map(f => (
+                <button key={f} onClick={() => setExpFormat(f)} style={{ ...expBtnStyle, ...(expFormat === f ? expBtnActive : {}) }}>{f.toUpperCase()}</button>
+              ))}
             </div>
 
-            <div className="p-6 flex flex-col gap-4">
-              {/* Resolution */}
-              <div>
-                <div className="font-mono text-[10px] uppercase tracking-[0.08em] text-muted mb-2">Resolution</div>
-                <div className="flex gap-2">
-                  {([1, 2, 3] as const).map(r => (
-                    <button
-                      key={r}
-                      type="button"
-                      onClick={() => setExportRes(r)}
-                      className={cn(
-                        'px-[14px] py-[6px] border rounded-[6px] font-mono text-[11px] transition-all',
-                        exportRes === r ? 'bg-text text-white border-text' : 'border-border text-muted bg-bg'
-                      )}
-                    >
-                      {r}× <span className="text-faint">{r === 1 ? '1200×800' : r === 2 ? '2400×1600' : '3600×2400'}</span>
-                    </button>
+            {/* Resolution — hide for SVG */}
+            {expFormat === 'png' && (
+              <>
+                <FieldLabel>Resolution</FieldLabel>
+                <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
+                  {[1, 2, 3].map(r => (
+                    <button key={r} onClick={() => setExpRes(r)} style={{ ...expBtnStyle, ...(expRes === r ? expBtnActive : {}) }}>{r}×</button>
                   ))}
                 </div>
-              </div>
+              </>
+            )}
 
-              {/* Background */}
-              <div>
-                <div className="font-mono text-[10px] uppercase tracking-[0.08em] text-muted mb-2">Background</div>
-                <div className="flex gap-2 flex-wrap">
-                  {([
-                    { key: 'white',       label: 'White',       color: '#fff' },
-                    { key: 'offwhite',    label: 'Off-white',   color: '#F7F3EC' },
-                    { key: 'dark',        label: 'Dark',        color: '#111' },
-                    { key: 'transparent', label: 'Transparent', color: null },
-                  ] as const).map(bg => (
-                    <button
-                      key={bg.key}
-                      type="button"
-                      onClick={() => setExportBg(bg.key)}
-                      className={cn(
-                        'flex items-center gap-1.5 px-3 py-[6px] border rounded-[6px] font-mono text-[11px] text-muted transition-all',
-                        exportBg === bg.key ? 'border-text text-text' : 'border-border'
-                      )}
-                    >
-                      <span
-                        className="w-3 h-3 rounded-[3px] border border-border"
-                        style={{
-                          background: bg.color ?? 'repeating-linear-gradient(45deg,#E0E0E0 0,#E0E0E0 1px,#fff 0,#fff 4px)',
-                        }}
-                      />
-                      {bg.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
+            {/* Background */}
+            <FieldLabel>Background</FieldLabel>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
+              {(['white', 'offwhite', 'dark', 'transparent'] as const).map(b => (
+                <button key={b} onClick={() => setExpBg(b)} style={{ ...expBtnStyle, ...(expBg === b ? expBtnActive : {}), fontSize: 9 }}>
+                  {b === 'offwhite' ? 'Off-wh.' : b}
+                </button>
+              ))}
+            </div>
 
-              <button
-                type="button"
-                onClick={handleExportPNG}
-                className="w-full py-2.5 bg-text text-white font-medium text-[13px] rounded-[8px] hover:bg-[#333] transition-all"
-              >
-                Download PNG
-              </button>
+            {/* Include */}
+            <FieldLabel>Include in export</FieldLabel>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
+              <ToggleBtn active={incTitle} onClick={() => setIncTitle(t => !t)}>Title & text</ToggleBtn>
+              <ToggleBtn active={incWatermark} onClick={() => setIncWatermark(w => !w)}>Watermark</ToggleBtn>
+            </div>
+
+            {/* Preview label */}
+            <div style={{ fontSize: 10, color: '#888', background: '#F7F7F7', borderRadius: 6, padding: '7px 10px', marginBottom: 20, fontFamily: 'monospace' }}>
+              {expFormat.toUpperCase()} · {expRes}× ({1200 * expRes}×{800 * expRes}px) · {expBg} bg · title {incTitle ? 'on' : 'off'}
+            </div>
+
+            {/* Buttons */}
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={() => setShowExport(false)} style={navBtnStyle}>Cancel</button>
+              {expFormat === 'svg' && (
+                <button onClick={downloadSVG} style={{ ...navBtnStyle, background: '#111', color: '#fff', borderColor: '#111' }}>↓ Download SVG</button>
+              )}
+              {expFormat === 'png' && (
+                <button onClick={downloadPNG} style={{ ...navBtnStyle, background: '#1D6EE8', color: '#fff', borderColor: '#1D6EE8' }}>↓ Download PNG</button>
+              )}
             </div>
           </div>
         </div>
@@ -741,10 +666,69 @@ function EditorContent() {
   )
 }
 
-export default function EditorPage() {
+// ── Sub-components ─────────────────────────────────────────────────────────────
+
+function SectionHeader({ label, open, onToggle }: { label: string; open: boolean; onToggle: () => void }) {
   return (
-    <Suspense fallback={<div className="h-screen bg-bg" />}>
-      <EditorContent />
-    </Suspense>
+    <button
+      onClick={onToggle}
+      style={{
+        width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '10px 14px', background: 'none', border: 'none', borderBottom: '1px solid #F0F0F0',
+        cursor: 'pointer', fontSize: 11, fontWeight: 700, color: '#333',
+        fontFamily: 'Helvetica, Arial, sans-serif', textAlign: 'left',
+      }}
+    >
+      {label}
+      <span style={{ fontSize: 10, color: '#AAA', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s', display: 'inline-block' }}>▾</span>
+    </button>
   )
+}
+
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ fontSize: 10, color: '#888', fontWeight: 600, marginBottom: 5, marginTop: 2 }}>{children}</div>
+  )
+}
+
+function ToggleBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        padding: '5px 10px', fontSize: 10, fontWeight: 600, borderRadius: 5, cursor: 'pointer',
+        border: `1.5px solid ${active ? '#1D6EE8' : '#E0E0E0'}`,
+        background: active ? '#EEF4FF' : '#fff',
+        color: active ? '#1D6EE8' : '#666',
+        fontFamily: 'Helvetica, Arial, sans-serif',
+        transition: 'all .1s',
+      }}
+    >
+      {children}
+    </button>
+  )
+}
+
+// ── Shared styles ──────────────────────────────────────────────────────────────
+
+const navBtnStyle: React.CSSProperties = {
+  padding: '6px 14px', fontSize: 12, fontWeight: 600, borderRadius: 7,
+  border: '1px solid #D8D8D8', background: '#fff', color: '#333',
+  cursor: 'pointer', fontFamily: 'Helvetica, Arial, sans-serif', transition: 'all .1s',
+}
+
+const inputStyle: React.CSSProperties = {
+  width: '100%', boxSizing: 'border-box', padding: '7px 8px', border: '1px solid #E0E0E0',
+  borderRadius: 6, fontSize: 11, fontFamily: 'Helvetica, Arial, sans-serif',
+  background: '#fff', color: '#111', outline: 'none', marginBottom: 10,
+}
+
+const expBtnStyle: React.CSSProperties = {
+  flex: 1, padding: '7px 0', fontSize: 11, fontWeight: 600, borderRadius: 6,
+  border: '1.5px solid #E0E0E0', background: '#fff', color: '#555',
+  cursor: 'pointer', fontFamily: 'Helvetica, Arial, sans-serif',
+}
+
+const expBtnActive: React.CSSProperties = {
+  border: '1.5px solid #1D6EE8', background: '#EEF4FF', color: '#1D6EE8',
 }
