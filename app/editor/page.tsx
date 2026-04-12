@@ -11,6 +11,7 @@ import {
   detectChartType,
   buildChartConfig,
   computeStats,
+  getChartJSType,
   type PlotChartType,
 } from '@/lib/chartEngine'
 
@@ -191,7 +192,7 @@ function EditorContent() {
     legend: false,
   })
 
-  // Parse data
+  // Parse data — derived on every render from csvData
   const { labels, values, rawRows } = parseCSV(csvData)
   const detectedType = detectChartType(labels, values)
   const { data, options } = buildChartConfig(chartType, labels, values, {
@@ -200,8 +201,13 @@ function EditorContent() {
     cornerRadius,
     showGrid,
     smooth,
+    showLegend,
   })
   const stats = computeStats(values)
+
+  // Key forces full Chart recreation when type or data shape changes.
+  // Config-only changes (color, opacity, etc.) do NOT change this key.
+  const chartKey = `${chartType}-${labels.length}-${labels[0] || ''}-${labels[labels.length - 1] || ''}`
 
   const toggleSection = useCallback(
     (key: string) =>
@@ -235,6 +241,19 @@ function EditorContent() {
       })
       .catch(() => {})
   }, [idParam])
+
+  // Reactive update — when visual config changes (NOT type/data), mutate chart in-place
+  // chartType and csvData are intentionally excluded — those change chartKey instead
+  useEffect(() => {
+    if (!chartRef.current) return
+    const { data: newData, options: newOptions } = buildChartConfig(chartType, labels, values, {
+      color: selectedColor, opacity, cornerRadius, showGrid, smooth, showLegend,
+    })
+    chartRef.current.data = newData as typeof chartRef.current.data
+    chartRef.current.options = newOptions as typeof chartRef.current.options
+    chartRef.current.update('active')
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedColor, opacity, cornerRadius, showGrid, smooth, showLegend])
 
   // Auto-save debounce — 2000ms
   useEffect(() => {
@@ -334,10 +353,12 @@ function EditorContent() {
     setShowExportModal(false)
   }
 
-  const chartJsType =
-    chartType === 'doughnut' ? 'doughnut' :
-    chartType === 'scatter' ? 'scatter' :
-    chartType === 'line' ? 'line' : 'bar'
+  const handleTypeChange = (newType: PlotChartType) => {
+    setChartType(newType)
+    // Auto-show legend for doughnut, hide for others
+    if (newType === 'doughnut') setShowLegend(true)
+    else setShowLegend(false)
+  }
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-bg">
@@ -401,7 +422,7 @@ function EditorContent() {
                 <button
                   key={i}
                   type="button"
-                  onClick={() => setChartType(ct.type)}
+                  onClick={() => handleTypeChange(ct.type)}
                   className={cn(
                     'flex flex-col items-center gap-[3px] py-[6px] px-1 border rounded-[5px] transition-all text-[8px] font-mono',
                     chartType === ct.type && ct.label !== 'h-bar'
@@ -732,20 +753,11 @@ function EditorContent() {
             {/* Chart wrapper */}
             <div className="relative flex-1" style={{ minHeight: 260 }}>
               <Chart
+                key={chartKey}
                 ref={chartRef}
-                type={chartJsType}
+                type={getChartJSType(chartType)}
                 data={data}
-                options={{
-                  ...options,
-                  plugins: {
-                    ...options.plugins,
-                    legend: {
-                      ...options.plugins?.legend,
-                      display: showLegend,
-                      position: legendPosition,
-                    },
-                  },
-                }}
+                options={options}
               />
               {/* Social overlay */}
               {(headline || caption) && (
