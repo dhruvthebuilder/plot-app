@@ -10,8 +10,7 @@ if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
   })
 }
 
-// Set these to actual plan IDs from Razorpay dashboard
-export const RAZORPAY_PLAN_IDS: Record<'pro' | 'biz', string> = {
-  pro: process.env.RAZORPAY_PLAN_ID_PRO || 'plan_pro_placeholder',
-  biz: process.env.RAZORPAY_PLAN_ID_BIZ || 'plan_biz_placeholder',
+export const RAZORPAY_PLAN_IDS: Record<'pro' | 'biz', string | undefined> = {
+  pro: process.env.RAZORPAY_PLAN_ID_PRO,
+  biz: process.env.RAZORPAY_PLAN_ID_BIZ,
 }
