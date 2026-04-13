@@ -288,7 +288,7 @@ function EditorInner() {
   <rect width="${canvas.width}" height="${canvas.height}" fill="${bgFill}"/>
   ${titleLine}
   <image href="${base64}" x="0" y="0" width="${canvas.width}" height="${canvas.height}"/>
-  ${incWatermark ? `<text x="${canvas.width - 120}" y="${canvas.height - 8}" font-family="Helvetica,Arial,sans-serif" font-size="9" fill="rgba(0,0,0,.25)">Made with Plot</text>` : ''}
+  ${incWatermark ? `<text x="${canvas.width - 120}" y="${canvas.height - 8}" font-family="Helvetica,Arial,sans-serif" font-size="9" fill="${expBg === 'dark' ? 'rgba(255,255,255,.25)' : 'rgba(0,0,0,.25)'}">Made with Plot</text>` : ''}
 </svg>`
     const blob = new Blob([svg], { type: 'image/svg+xml' })
     const link = document.createElement('a')

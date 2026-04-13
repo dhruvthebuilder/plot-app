@@ -124,8 +124,12 @@ export function parseCSV(raw: string): ParsedTable | null {
   function parseRow(line: string): string[] {
     const cells: string[] = []
     let cur = '', inQ = false
-    for (const c of line) {
-      if (c === '"') { inQ = !inQ; continue }
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i]
+      if (c === '"') {
+        if (inQ && line[i + 1] === '"') { cur += '"'; i++; continue } // escaped ""
+        inQ = !inQ; continue
+      }
       if (c === delim && !inQ) { cells.push(cur.trim()); cur = '' } else cur += c
     }
     cells.push(cur.trim())
@@ -327,6 +331,26 @@ function avgLineDataset(vals: number[], n: number, fmt: string, color = '#F0A500
   }
 }
 
+// Shared tooltip config reused by custom-options charts
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const sharedTooltip = {
+  backgroundColor: '#111',
+  titleColor: '#fff',
+  bodyColor: '#ccc',
+  titleFont: { family: FONT, size: 12, weight: 'bold' as const },
+  bodyFont: { family: FONT, size: 11 },
+  padding: 10,
+  cornerRadius: 6,
+  displayColors: false,
+}
+
+// Pie/doughnut percent formatter
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const pctFormatter = (v: number, ctx: { dataset: { data: number[] } }) => {
+  const sum = ctx.dataset.data.reduce((a: number, b: number) => a + b, 0)
+  return sum ? Math.round(v / sum * 100) + '%' : ''
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function buildChartConfig(
   table: ParsedTable,
@@ -367,24 +391,23 @@ export function buildChartConfig(
     const s2 = parseNums(getCol(table, mappings, 'y2'))
     const s3 = parseNums(getCol(table, mappings, 'y3'))
     const cols = colorScale(color, 3)
-    const dsets = [
+    const dsets: object[] = [
       { label: table.headers[mappings.y1] || 'Series 1', data: s1, backgroundColor: cols[0], borderRadius: radius, borderSkipped: false },
-      s2.length ? { label: table.headers[mappings.y2] || 'Series 2', data: s2, backgroundColor: cols[1], borderRadius: radius, borderSkipped: false } : null,
-      s3.length ? { label: table.headers[mappings.y3] || 'Series 3', data: s3, backgroundColor: cols[2], borderRadius: radius, borderSkipped: false } : null,
-    ].filter(Boolean)
+      ...(s2.length ? [{ label: table.headers[mappings.y2] || 'Series 2', data: s2, backgroundColor: cols[1], borderRadius: radius, borderSkipped: false }] : []),
+      ...(s3.length ? [{ label: table.headers[mappings.y3] || 'Series 3', data: s3, backgroundColor: cols[2], borderRadius: radius, borderSkipped: false }] : []),
+    ]
+    if (vis.showAvgLine) dsets.push(avgLineDataset(s1, labs.length, fmt))
     const opts = buildBaseOptions(vis)
     if (ct === 'bar-stacked') { opts.scales.x.stacked = true; opts.scales.y.stacked = true }
-    opts.plugins.legend.display = true
+    opts.plugins.legend.display = true  // multi-series always needs legend; toggle controls single-series
     return { type: 'bar', data: { labels: labs, datasets: dsets }, options: opts }
   }
 
   // ── LOLLIPOP ──
   if (ct === 'lollipop') {
-    return {
-      type: 'bar',
-      data: { labels, datasets: [{ data: vals, backgroundColor: hexToRgba(color, op), borderRadius: 10, borderSkipped: false, barThickness: 3 }] },
-      options: buildBaseOptions(vis),
-    }
+    const datasets: object[] = [{ data: vals, backgroundColor: hexToRgba(color, op), borderRadius: 10, borderSkipped: false, barThickness: 3 }]
+    if (vis.showAvgLine) datasets.push(avgLineDataset(vals, labels.length, fmt))
+    return { type: 'bar', data: { labels, datasets }, options: buildBaseOptions(vis) }
   }
 
   // ── LINE ──
@@ -399,13 +422,15 @@ export function buildChartConfig(
     const labs = getCol(table, mappings, 'x')
     const cols = colorScale(color, 3)
     const keys = ['y1', 'y2', 'y3']
-    const dsets = keys.map((k, i) => {
+    const dsets: object[] = keys.map((k, i) => {
       const d = parseNums(getCol(table, mappings, k))
       if (!d.length) return null
       return { label: table.headers[mappings[k]] || `Line ${i + 1}`, data: d, borderColor: cols[i], borderWidth: 2, backgroundColor: hexToRgba(cols[i], 0.08), fill: false, tension: vis.smooth ? 0.4 : 0, pointRadius: 3, pointBackgroundColor: cols[i] }
-    }).filter(Boolean)
+    }).filter(Boolean) as object[]
+    const s1 = parseNums(getCol(table, mappings, 'y1'))
+    if (vis.showAvgLine && s1.length) dsets.push(avgLineDataset(s1, labs.length, fmt))
     const opts = buildBaseOptions(vis)
-    opts.plugins.legend.display = true
+    opts.plugins.legend.display = true  // multi-line always needs legend
     return { type: 'line', data: { labels: labs, datasets: dsets }, options: opts }
   }
 
@@ -424,37 +449,36 @@ export function buildChartConfig(
     const s2 = parseNums(getCol(table, mappings, 'y2'))
     const opts = buildBaseOptions(vis)
     opts.scales.y.stacked = true
-    opts.plugins.legend.display = true
+    opts.plugins.legend.display = true  // stacked area always needs legend
     return {
       type: 'line',
       data: { labels: labs, datasets: [
         { label: table.headers[mappings.y1] || 'S1', data: s1, borderColor: cols[0], backgroundColor: hexToRgba(cols[0], 0.5), fill: true, tension: vis.smooth ? 0.4 : 0 },
-        s2.length ? { label: table.headers[mappings.y2] || 'S2', data: s2, borderColor: cols[1], backgroundColor: hexToRgba(cols[1], 0.4), fill: true, tension: vis.smooth ? 0.4 : 0 } : null,
-      ].filter(Boolean) },
+        ...(s2.length ? [{ label: table.headers[mappings.y2] || 'S2', data: s2, borderColor: cols[1], backgroundColor: hexToRgba(cols[1], 0.4), fill: true, tension: vis.smooth ? 0.4 : 0 }] : []),
+      ] },
       options: opts,
     }
   }
 
   // ── STEP ──
   if (ct === 'step') {
-    return {
-      type: 'line',
-      data: { labels, datasets: [{ data: vals, borderColor: color, borderWidth: 2, backgroundColor: hexToRgba(color, 0.1), stepped: 'before', fill: true, pointRadius: 3, pointBackgroundColor: color }] },
-      options: buildBaseOptions(vis),
-    }
+    const datasets: object[] = [{ data: vals, borderColor: color, borderWidth: 2, backgroundColor: hexToRgba(color, 0.1), stepped: 'before', fill: true, pointRadius: 3, pointBackgroundColor: color }]
+    if (vis.showAvgLine) datasets.push(avgLineDataset(vals, labels.length, fmt))
+    return { type: 'line', data: { labels, datasets }, options: buildBaseOptions(vis) }
   }
 
   // ── PIE ──
   if (ct === 'pie') {
+    const lgndPos = vis.showLegend ? 'right' : 'bottom'
     return {
       type: 'pie',
       data: { labels, datasets: [{ data: vals, backgroundColor: colorScale(color, vals.length), borderColor: '#fff', borderWidth: 2 }] },
       options: {
         responsive: true, maintainAspectRatio: false, animation: { duration: 280 },
         plugins: {
-          legend: { display: true, position: 'right', labels: { font: { family: FONT, size: 10 }, color: '#888', boxWidth: 10 } },
-          tooltip: { backgroundColor: '#111', titleFont: { family: FONT, size: 12, weight: 'bold' }, bodyFont: { family: FONT, size: 11 }, padding: 10, cornerRadius: 6, displayColors: false },
-          datalabels: { display: vis.showLabels, color: '#fff', font: { family: FONT, size: 10, weight: 'bold' as const }, formatter: (v: number, ctx: { dataset: { data: number[] } }) => { const sum = ctx.dataset.data.reduce((a: number, b: number) => a + b, 0); return sum ? Math.round(v / sum * 100) + '%' : '' } },
+          legend: { display: vis.showLegend, position: lgndPos, labels: { font: { family: FONT, size: 10 }, color: '#888', boxWidth: 10 } },
+          tooltip: sharedTooltip,
+          datalabels: { display: vis.showLabels, color: '#fff', font: { family: FONT, size: 10, weight: 'bold' as const }, formatter: pctFormatter },
         },
       },
     }
@@ -462,32 +486,34 @@ export function buildChartConfig(
 
   // ── DOUGHNUT ──
   if (ct === 'doughnut') {
+    const lgndPos = vis.showLegend ? 'right' : 'bottom'
     return {
       type: 'doughnut',
       data: { labels, datasets: [{ data: vals, backgroundColor: colorScale(color, vals.length), borderColor: '#fff', borderWidth: 2 }] },
       options: {
         responsive: true, maintainAspectRatio: false, cutout: '62%', animation: { duration: 280 },
         plugins: {
-          legend: { display: true, position: 'right', labels: { font: { family: FONT, size: 10 }, color: '#888', boxWidth: 10 } },
-          tooltip: { backgroundColor: '#111', titleFont: { family: FONT, size: 12, weight: 'bold' }, bodyFont: { family: FONT, size: 11 }, padding: 10, cornerRadius: 6, displayColors: false },
-          datalabels: { display: vis.showLabels, color: '#fff', font: { family: FONT, size: 10, weight: 'bold' as const }, formatter: (v: number, ctx: { dataset: { data: number[] } }) => { const sum = ctx.dataset.data.reduce((a: number, b: number) => a + b, 0); return sum ? Math.round(v / sum * 100) + '%' : '' } },
+          legend: { display: vis.showLegend, position: lgndPos, labels: { font: { family: FONT, size: 10 }, color: '#888', boxWidth: 10 } },
+          tooltip: sharedTooltip,
+          datalabels: { display: vis.showLabels, color: '#fff', font: { family: FONT, size: 10, weight: 'bold' as const }, formatter: pctFormatter },
         },
       },
     }
   }
 
-  // ── TREEMAP / WAFFLE — fallback to pie ──
+  // ── TREEMAP / WAFFLE — rendered as proportional pie ──
   if (ct === 'treemap' || ct === 'waffle') {
     const cols = colorScale(color, vals.length)
+    const lgndPos = vis.showLegend ? 'right' : 'bottom'
     return {
       type: 'pie',
       data: { labels, datasets: [{ data: vals, backgroundColor: cols, borderColor: '#fff', borderWidth: 2 }] },
       options: {
         responsive: true, maintainAspectRatio: false, animation: { duration: 280 },
         plugins: {
-          legend: { display: true, position: 'right', labels: { font: { family: FONT, size: 10 }, color: '#888', boxWidth: 10 } },
-          tooltip: { backgroundColor: '#111', titleFont: { family: FONT, size: 12, weight: 'bold' }, bodyFont: { family: FONT, size: 11 }, padding: 10, cornerRadius: 6, displayColors: false },
-          datalabels: { display: false },
+          legend: { display: vis.showLegend, position: lgndPos, labels: { font: { family: FONT, size: 10 }, color: '#888', boxWidth: 10 } },
+          tooltip: sharedTooltip,
+          datalabels: { display: vis.showLabels, color: '#fff', font: { family: FONT, size: 10, weight: 'bold' as const }, formatter: pctFormatter },
         },
       },
     }
@@ -502,21 +528,24 @@ export function buildChartConfig(
     const buckets = Array.from({ length: bins }, (_, i) => ({ min: mn + i * bsz, max: mn + (i + 1) * bsz, n: 0 }))
     raw.forEach(v => { const i = Math.min(Math.floor((v - mn) / bsz), bins - 1); buckets[i].n++ })
     const labs = buckets.map(b => `${b.min.toFixed(0)}–${b.max.toFixed(0)}`)
-    return {
-      type: 'bar',
-      data: { labels: labs, datasets: [{ data: buckets.map(b => b.n), backgroundColor: hexToRgba(color, op), borderColor: color, borderWidth: 1, borderRadius: 0, borderSkipped: false, categoryPercentage: 1, barPercentage: 1 }] },
-      options: buildBaseOptions(vis),
-    }
+    const counts = buckets.map(b => b.n)
+    const datasets: object[] = [{ data: counts, backgroundColor: hexToRgba(color, op), borderColor: color, borderWidth: 1, borderRadius: 0, borderSkipped: false, categoryPercentage: 1, barPercentage: 1 }]
+    if (vis.showAvgLine) datasets.push(avgLineDataset(counts, bins, fmt))
+    return { type: 'bar', data: { labels: labs, datasets }, options: buildBaseOptions(vis) }
   }
 
   // ── DOT PLOT ──
   if (ct === 'dot-plot') {
-    const xs = parseNums(getCol(table, mappings, 'x'))
+    const xsRaw = getCol(table, mappings, 'x')
     const ys = parseNums(getCol(table, mappings, 'y'))
-    const pts = xs.map((x, i) => ({ x, y: ys[i] ?? 0 }))
+    // If x is numeric, use as scatter; otherwise use category index
+    const xNums = parseNums(xsRaw)
+    const pts = xNums.map((x, i) => ({ x, y: ys[i] ?? 0 }))
     const opts = buildBaseOptions(vis)
-    opts.scales.x = { type: 'linear', grid: { display: false }, ticks: { font: { family: FONT, size: 10 }, color: '#AAA' } }
-    return { type: 'scatter', data: { datasets: [{ data: pts, backgroundColor: hexToRgba(color, op), pointRadius: 6, pointHoverRadius: 8, pointStyle: 'circle' }] }, options: opts }
+    opts.scales.x = { type: 'linear', grid: { display: false }, ticks: { font: { family: FONT, size: 10 }, color: '#AAA' }, title: { display: !!vis.xLabel, text: vis.xLabel, font: { family: FONT, size: 10 }, color: '#AAA' } }
+    const datasets: object[] = [{ data: pts, backgroundColor: hexToRgba(color, op), pointRadius: 6, pointHoverRadius: 8, pointStyle: 'circle', datalabels: { display: false } }]
+    if (vis.showAvgLine) datasets.push(avgLineDataset(ys, ys.length, fmt))
+    return { type: 'scatter', data: { datasets }, options: opts }
   }
 
   // ── SCATTER ──
@@ -525,8 +554,12 @@ export function buildChartConfig(
     const ys = parseNums(getCol(table, mappings, 'y'))
     const pts = xs.map((x, i) => ({ x, y: ys[i] ?? 0 }))
     const opts = buildBaseOptions(vis)
-    opts.scales.x = { type: 'linear', grid: { display: false }, ticks: { font: { family: FONT, size: 10 }, color: '#AAA' } }
-    return { type: 'scatter', data: { datasets: [{ data: pts, backgroundColor: hexToRgba(color, op), pointRadius: 5, pointHoverRadius: 7 }] }, options: opts }
+    opts.scales.x = { type: 'linear', grid: { display: false }, ticks: { font: { family: FONT, size: 10 }, color: '#AAA' }, title: { display: !!vis.xLabel, text: vis.xLabel, font: { family: FONT, size: 10 }, color: '#AAA' } }
+    // Override datalabels formatter for scatter points
+    opts.plugins.datalabels.formatter = (value: { x: number; y: number }) => `(${tickFmt(value.x, fmt)}, ${tickFmt(value.y, fmt)})`
+    const datasets: object[] = [{ data: pts, backgroundColor: hexToRgba(color, op), pointRadius: 5, pointHoverRadius: 7 }]
+    if (vis.showAvgLine) datasets.push(avgLineDataset(ys, ys.length, fmt))
+    return { type: 'scatter', data: { datasets }, options: opts }
   }
 
   // ── BUBBLE ──
@@ -537,7 +570,8 @@ export function buildChartConfig(
     const maxR = Math.max(...rs) || 1
     const pts = xs.map((x, i) => ({ x, y: ys[i] ?? 0, r: Math.max(((rs[i] || 0) / maxR) * 20, 3) }))
     const opts = buildBaseOptions(vis)
-    opts.scales.x = { type: 'linear', grid: { display: false }, ticks: { font: { family: FONT, size: 10 }, color: '#AAA' } }
+    opts.scales.x = { type: 'linear', grid: { display: false }, ticks: { font: { family: FONT, size: 10 }, color: '#AAA' }, title: { display: !!vis.xLabel, text: vis.xLabel, font: { family: FONT, size: 10 }, color: '#AAA' } }
+    opts.plugins.datalabels.formatter = (value: { x: number; y: number }) => `${tickFmt(value.y, fmt)}`
     return { type: 'bubble', data: { datasets: [{ data: pts, backgroundColor: hexToRgba(color, op * 0.8), borderColor: color, borderWidth: 1 }] }, options: opts }
   }
 
@@ -545,11 +579,9 @@ export function buildChartConfig(
   if (ct === 'heatmap') {
     const maxV = Math.max(...vals) || 1
     const bgColors = vals.map(v => hexToRgba(color, 0.15 + 0.8 * (v / maxV)))
-    return {
-      type: 'bar',
-      data: { labels, datasets: [{ data: vals, backgroundColor: bgColors, borderRadius: 2, borderSkipped: false }] },
-      options: buildBaseOptions(vis),
-    }
+    const datasets: object[] = [{ data: vals, backgroundColor: bgColors, borderRadius: 2, borderSkipped: false }]
+    if (vis.showAvgLine) datasets.push(avgLineDataset(vals, labels.length, fmt))
+    return { type: 'bar', data: { labels, datasets }, options: buildBaseOptions(vis) }
   }
 
   // ── WATERFALL ──
@@ -568,7 +600,7 @@ export function buildChartConfig(
     return {
       type: 'bar',
       data: { labels, datasets: [
-        { data: bases, backgroundColor: 'transparent', borderColor: 'transparent', borderWidth: 0, borderSkipped: false },
+        { data: bases, backgroundColor: 'transparent', borderColor: 'transparent', borderWidth: 0, borderSkipped: false, datalabels: { display: false } },
         { data: sizes, backgroundColor: bgs, borderRadius: radius, borderSkipped: false },
       ] },
       options: opts,
@@ -578,7 +610,7 @@ export function buildChartConfig(
   // ── FUNNEL ──
   if (ct === 'funnel') {
     const sorted = [...labels.map((l, i) => ({ l, v: vals[i] || 0 }))].sort((a, b) => b.v - a.v)
-    const cols = sorted.map((_, i) => hexToRgba(color, 0.9 - i * 0.1))
+    const cols = sorted.map((_, i) => hexToRgba(color, Math.max(0.9 - i * 0.08, 0.2)))
     const opts = buildBaseOptions(vis)
     opts.indexAxis = 'y'
     return {
@@ -597,9 +629,9 @@ export function buildChartConfig(
         responsive: true, maintainAspectRatio: false, animation: { duration: 280 },
         scales: { r: { grid: { color: '#F0F0F0' }, ticks: { font: { family: FONT, size: 9 }, color: '#AAA' }, pointLabels: { font: { family: FONT, size: 10 }, color: '#555' } } },
         plugins: {
-          legend: { display: false },
-          tooltip: { backgroundColor: '#111', titleFont: { family: FONT, size: 12, weight: 'bold' }, bodyFont: { family: FONT, size: 11 }, padding: 10, cornerRadius: 6, displayColors: false },
-          datalabels: { display: false },
+          legend: { display: vis.showLegend, position: 'bottom', labels: { font: { family: FONT, size: 10 }, color: '#888', boxWidth: 10 } },
+          tooltip: sharedTooltip,
+          datalabels: { display: vis.showLabels, color: '#555', font: { family: FONT, size: 10, weight: 'bold' as const }, formatter: (v: number) => tickFmt(v, fmt) },
         },
       },
     }
@@ -611,15 +643,13 @@ export function buildChartConfig(
     const bv = parseNums(getCol(table, mappings, 'y1'))
     const lv = parseNums(getCol(table, mappings, 'y2'))
     const opts = buildBaseOptions(vis)
-    opts.plugins.legend.display = true
-    return {
-      type: 'bar',
-      data: { labels: labs, datasets: [
-        { type: 'bar', label: table.headers[mappings.y1] || 'Bars', data: bv, backgroundColor: hexToRgba(color, op), borderRadius: radius, borderSkipped: false, yAxisID: 'y' },
-        lv.length ? { type: 'line', label: table.headers[mappings.y2] || 'Line', data: lv, borderColor: '#F0A500', backgroundColor: 'rgba(240,165,0,.08)', borderWidth: 2.5, fill: false, tension: vis.smooth ? 0.4 : 0, pointRadius: 4, pointBackgroundColor: '#F0A500', yAxisID: 'y' } : null,
-      ].filter(Boolean) },
-      options: opts,
-    }
+    opts.plugins.legend.display = true  // bar+line always needs legend
+    const datasets: object[] = [
+      { type: 'bar', label: table.headers[mappings.y1] || 'Bars', data: bv, backgroundColor: hexToRgba(color, op), borderRadius: radius, borderSkipped: false, yAxisID: 'y' },
+      ...(lv.length ? [{ type: 'line', label: table.headers[mappings.y2] || 'Line', data: lv, borderColor: '#F0A500', backgroundColor: 'rgba(240,165,0,.08)', borderWidth: 2.5, fill: false, tension: vis.smooth ? 0.4 : 0, pointRadius: 4, pointBackgroundColor: '#F0A500', yAxisID: 'y' }] : []),
+    ]
+    if (vis.showAvgLine) datasets.push(avgLineDataset(bv, labs.length, fmt))
+    return { type: 'bar', data: { labels: labs, datasets }, options: opts }
   }
 
   // ── GAUGE ──
@@ -630,48 +660,171 @@ export function buildChartConfig(
     return {
       type: 'doughnut',
       data: { labels: ['Value', 'Remaining'], datasets: [{ data: [pct * 100, (1 - pct) * 100], backgroundColor: [hexToRgba(color, op), '#F0F0F0'], borderColor: ['transparent', 'transparent'], borderWidth: 0 }] },
-      options: { responsive: true, maintainAspectRatio: false, cutout: '70%', rotation: -90, circumference: 180, plugins: { legend: { display: false }, tooltip: { enabled: false }, datalabels: { display: false } } },
+      options: {
+        responsive: true, maintainAspectRatio: false, cutout: '70%', rotation: -90, circumference: 180,
+        plugins: {
+          legend: { display: false },
+          tooltip: { enabled: false },
+          datalabels: { display: false },
+        },
+      },
     }
   }
 
   // ── LINE + AREA ──
   if (ct === 'line-area') {
-    return {
-      type: 'line',
-      data: { labels, datasets: [{ data: vals, borderColor: color, borderWidth: 2, backgroundColor: hexToRgba(color, 0.2), fill: true, tension: vis.smooth ? 0.4 : 0, pointBackgroundColor: color, pointBorderColor: '#fff', pointBorderWidth: 2, pointRadius: 4 }] },
-      options: buildBaseOptions(vis),
-    }
+    const datasets: object[] = [{ data: vals, borderColor: color, borderWidth: 2, backgroundColor: hexToRgba(color, 0.2), fill: true, tension: vis.smooth ? 0.4 : 0, pointBackgroundColor: color, pointBorderColor: '#fff', pointBorderWidth: 2, pointRadius: 4 }]
+    if (vis.showAvgLine) datasets.push(avgLineDataset(vals, labels.length, fmt))
+    return { type: 'line', data: { labels, datasets }, options: buildBaseOptions(vis) }
   }
 
-  // ── ERROR BAR ──
+  // ── ERROR BAR — bars with whiskers showing ± error ──
   if (ct === 'error-bar') {
-    return {
-      type: 'bar',
-      data: { labels, datasets: [{ data: vals, backgroundColor: hexToRgba(color, op), borderRadius: radius, borderSkipped: false }] },
-      options: buildBaseOptions(vis),
+    const errors = parseNums(getCol(table, mappings, 'e'))
+    const hasErrors = errors.some(e => e > 0)
+    const datasets: object[] = [
+      { data: vals, backgroundColor: hexToRgba(color, op), borderRadius: radius, borderSkipped: false },
+    ]
+    if (hasErrors) {
+      // Whisker as thin floating bar [val-e, val+e]
+      datasets.push({
+        data: vals.map((v, i) => [v - (errors[i] ?? 0), v + (errors[i] ?? 0)]),
+        backgroundColor: 'transparent',
+        borderColor: hexToRgba(color, 0.75),
+        borderWidth: 2,
+        barThickness: 3,
+        borderSkipped: false,
+        datalabels: { display: false },
+      })
     }
+    if (vis.showAvgLine) datasets.push(avgLineDataset(vals, labels.length, fmt))
+    return { type: 'bar', data: { labels, datasets }, options: buildBaseOptions(vis) }
   }
 
-  // ── BOX PLOT — approximated with floating bars ──
+  // ── BOX PLOT — per-category IQR boxes with whiskers ──
   if (ct === 'box-plot') {
-    const sortedVals = [...vals].sort((a, b) => a - b)
-    const q1 = sortedVals[Math.floor(sortedVals.length * 0.25)] || 0
-    const q3 = sortedVals[Math.floor(sortedVals.length * 0.75)] || 0
-    const med = sortedVals[Math.floor(sortedVals.length * 0.5)] || 0
+    const xLabels = getCol(table, mappings, 'x')
+    const yVals = parseNums(getCol(table, mappings, 'y'))
+
+    // Group by category (x), or treat all as one group if no x mapping
+    const groupMap: Record<string, number[]> = {}
+    if (xLabels.length && xLabels.some(l => l)) {
+      xLabels.forEach((l, i) => {
+        const key = l || 'All'
+        if (!groupMap[key]) groupMap[key] = []
+        groupMap[key].push(yVals[i] ?? 0)
+      })
+    } else {
+      groupMap['Distribution'] = yVals
+    }
+    const cats = Object.keys(groupMap)
+    const stats = cats.map(cat => {
+      const sv = [...groupMap[cat]].sort((a, b) => a - b)
+      const n = sv.length
+      return {
+        min: sv[0] ?? 0,
+        q1: sv[Math.floor(n * 0.25)] ?? 0,
+        med: sv[Math.floor(n * 0.5)] ?? 0,
+        q3: sv[Math.floor(n * 0.75)] ?? 0,
+        max: sv[n - 1] ?? 0,
+      }
+    })
     const opts = buildBaseOptions(vis)
-    opts.scales.y.stacked = true
+    opts.scales.y.beginAtZero = false
+    opts.plugins.datalabels = { display: false }
     return {
       type: 'bar',
-      data: { labels: ['Distribution'], datasets: [
-        { data: [q1], backgroundColor: 'transparent', borderWidth: 0, borderSkipped: false },
-        { data: [q3 - q1], backgroundColor: hexToRgba(color, op), borderWidth: 2, borderColor: color, borderRadius: 3, borderSkipped: false },
-        { data: [med - q1], backgroundColor: hexToRgba(color, 0.9), borderWidth: 0, borderRadius: 0, borderSkipped: false },
-      ] },
+      data: {
+        labels: cats,
+        datasets: [
+          // Lower whisker [min, q1] — thin
+          { data: stats.map(s => [s.min, s.q1]), backgroundColor: 'transparent', borderColor: hexToRgba(color, 0.65), borderWidth: 2, barThickness: 3, borderSkipped: false, label: 'Whisker low' },
+          // IQR box [q1, q3] — full width
+          { data: stats.map(s => [s.q1, s.q3]), backgroundColor: hexToRgba(color, op * 0.6), borderColor: color, borderWidth: 1.5, barPercentage: 0.55, borderRadius: 2, borderSkipped: false, label: 'IQR' },
+          // Median line [med, med+tiny] drawn as a full-width thin bar
+          { data: stats.map(s => [s.med - 0.001, s.med + 0.001]), backgroundColor: color, borderColor: color, borderWidth: 0, barPercentage: 0.55, borderSkipped: false, label: 'Median', datalabels: { display: false } },
+          // Upper whisker [q3, max] — thin
+          { data: stats.map(s => [s.q3, s.max]), backgroundColor: 'transparent', borderColor: hexToRgba(color, 0.65), borderWidth: 2, barThickness: 3, borderSkipped: false, label: 'Whisker high' },
+        ],
+      },
       options: opts,
     }
   }
 
-  // ── SANKEY / CANDLESTICK — fallback to basic bar ──
+  // ── CANDLESTICK — OHLC floating bars (no external plugin needed) ──
+  if (ct === 'candlestick') {
+    const dates = getCol(table, mappings, 'x')
+    const opens  = parseNums(getCol(table, mappings, 'o'))
+    const highs  = parseNums(getCol(table, mappings, 'h'))
+    const lows   = parseNums(getCol(table, mappings, 'l'))
+    const closes = parseNums(getCol(table, mappings, 'c'))
+    const n = Math.min(opens.length, highs.length, lows.length, closes.length)
+    if (!n) return { type: 'bar', data: { labels, datasets: [{ data: vals, backgroundColor: hexToRgba(color, op), borderRadius: radius, borderSkipped: false }] }, options: buildBaseOptions(vis) }
+
+    const isUp = closes.slice(0, n).map((c, i) => c >= opens[i])
+    const upCol = '#10B981', downCol = '#E24B4A'
+    const opts = buildBaseOptions(vis)
+    opts.scales.y.beginAtZero = false
+    opts.plugins.datalabels = { display: false }
+    opts.plugins.legend.display = false
+    return {
+      type: 'bar',
+      data: {
+        labels: dates.slice(0, n),
+        datasets: [
+          // Wicks: thin bar from low to high
+          {
+            label: 'Wick',
+            data: Array.from({ length: n }, (_, i) => [lows[i], highs[i]]),
+            backgroundColor: isUp.map(up => hexToRgba(up ? upCol : downCol, 0.4)),
+            borderColor: isUp.map(up => up ? upCol : downCol),
+            borderWidth: 1,
+            barThickness: 2,
+            borderSkipped: false,
+            datalabels: { display: false },
+          },
+          // Body: floating bar from open to close
+          {
+            label: 'Body',
+            data: Array.from({ length: n }, (_, i) => [Math.min(opens[i], closes[i]), Math.max(opens[i], closes[i])]),
+            backgroundColor: isUp.map(up => hexToRgba(up ? upCol : downCol, 0.8)),
+            borderColor: isUp.map(up => up ? upCol : downCol),
+            borderWidth: 1,
+            barPercentage: 0.65,
+            borderSkipped: false,
+            borderRadius: 1,
+            datalabels: { display: false },
+          },
+        ],
+      },
+      options: opts,
+    }
+  }
+
+  // ── SANKEY — rendered as horizontal flow bars (source-to-target approximation) ──
+  if (ct === 'sankey') {
+    const fromLabels = getCol(table, mappings, 'x')
+    const toLabels = getCol(table, mappings, 'y')
+    const flowVals = parseNums(getCol(table, mappings, 'v'))
+    // Aggregate by source: sum of outflows per source node
+    const agg: Record<string, number> = {}
+    fromLabels.forEach((src, i) => {
+      agg[src] = (agg[src] || 0) + (flowVals[i] || 0)
+    })
+    const aggLabels = Object.keys(agg)
+    const aggVals = aggLabels.map(k => agg[k])
+    const sorted = [...aggLabels.map((l, i) => ({ l, v: aggVals[i] }))].sort((a, b) => b.v - a.v)
+    const cols = sorted.map((_, i) => hexToRgba(color, Math.max(0.9 - i * 0.08, 0.25)))
+    const opts = buildBaseOptions(vis)
+    opts.indexAxis = 'y'
+    return {
+      type: 'bar',
+      data: { labels: sorted.map(s => s.l), datasets: [{ data: sorted.map(s => s.v), backgroundColor: cols, borderRadius: 4, borderSkipped: false }] },
+      options: opts,
+    }
+  }
+
+  // ── DEFAULT fallback ──
   return {
     type: 'bar',
     data: { labels, datasets: [{ data: vals, backgroundColor: hexToRgba(color, op), borderRadius: radius, borderSkipped: false }] },
