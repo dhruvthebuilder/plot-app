@@ -29,6 +29,40 @@ const DEFAULT_VIS: VisualConfig = {
   showGrid: true, smooth: false, logScale: false,
   showLabels: false, showAvgLine: false, showLegend: false,
   xLabel: '', yLabel: '', tickFormat: 'auto',
+  lineWidth: 2.5, pointSize: 4, barWidth: 'auto',
+}
+
+// Per-chart-type capability flags — controls which Visual/Axes inputs are shown
+const CHART_CAPS: Record<ChartType, { hasRadius: boolean; hasSmooth: boolean; hasLog: boolean; hasGrid: boolean; hasLineWidth: boolean; hasPointSize: boolean; hasBarWidth: boolean }> = {
+  'bar-vertical':   { hasRadius: true,  hasSmooth: false, hasLog: true,  hasGrid: true,  hasLineWidth: false, hasPointSize: false, hasBarWidth: true  },
+  'bar-horizontal': { hasRadius: true,  hasSmooth: false, hasLog: true,  hasGrid: true,  hasLineWidth: false, hasPointSize: false, hasBarWidth: true  },
+  'bar-grouped':    { hasRadius: true,  hasSmooth: false, hasLog: true,  hasGrid: true,  hasLineWidth: false, hasPointSize: false, hasBarWidth: true  },
+  'bar-stacked':    { hasRadius: true,  hasSmooth: false, hasLog: true,  hasGrid: true,  hasLineWidth: false, hasPointSize: false, hasBarWidth: true  },
+  'lollipop':       { hasRadius: true,  hasSmooth: false, hasLog: true,  hasGrid: true,  hasLineWidth: false, hasPointSize: false, hasBarWidth: false },
+  'line':           { hasRadius: false, hasSmooth: true,  hasLog: true,  hasGrid: true,  hasLineWidth: true,  hasPointSize: true,  hasBarWidth: false },
+  'line-multi':     { hasRadius: false, hasSmooth: true,  hasLog: true,  hasGrid: true,  hasLineWidth: true,  hasPointSize: true,  hasBarWidth: false },
+  'area':           { hasRadius: false, hasSmooth: true,  hasLog: true,  hasGrid: true,  hasLineWidth: true,  hasPointSize: true,  hasBarWidth: false },
+  'area-stacked':   { hasRadius: false, hasSmooth: true,  hasLog: true,  hasGrid: true,  hasLineWidth: true,  hasPointSize: true,  hasBarWidth: false },
+  'step':           { hasRadius: false, hasSmooth: false, hasLog: true,  hasGrid: true,  hasLineWidth: true,  hasPointSize: true,  hasBarWidth: false },
+  'pie':            { hasRadius: false, hasSmooth: false, hasLog: false, hasGrid: false, hasLineWidth: false, hasPointSize: false, hasBarWidth: false },
+  'doughnut':       { hasRadius: false, hasSmooth: false, hasLog: false, hasGrid: false, hasLineWidth: false, hasPointSize: false, hasBarWidth: false },
+  'treemap':        { hasRadius: false, hasSmooth: false, hasLog: false, hasGrid: false, hasLineWidth: false, hasPointSize: false, hasBarWidth: false },
+  'waffle':         { hasRadius: false, hasSmooth: false, hasLog: false, hasGrid: false, hasLineWidth: false, hasPointSize: false, hasBarWidth: false },
+  'histogram':      { hasRadius: false, hasSmooth: false, hasLog: true,  hasGrid: true,  hasLineWidth: false, hasPointSize: false, hasBarWidth: false },
+  'box-plot':       { hasRadius: false, hasSmooth: false, hasLog: false, hasGrid: true,  hasLineWidth: false, hasPointSize: false, hasBarWidth: false },
+  'dot-plot':       { hasRadius: false, hasSmooth: false, hasLog: true,  hasGrid: true,  hasLineWidth: false, hasPointSize: true,  hasBarWidth: false },
+  'scatter':        { hasRadius: false, hasSmooth: false, hasLog: true,  hasGrid: true,  hasLineWidth: false, hasPointSize: true,  hasBarWidth: false },
+  'bubble':         { hasRadius: false, hasSmooth: false, hasLog: true,  hasGrid: true,  hasLineWidth: false, hasPointSize: false, hasBarWidth: false },
+  'heatmap':        { hasRadius: false, hasSmooth: false, hasLog: false, hasGrid: true,  hasLineWidth: false, hasPointSize: false, hasBarWidth: false },
+  'candlestick':    { hasRadius: false, hasSmooth: false, hasLog: false, hasGrid: true,  hasLineWidth: false, hasPointSize: false, hasBarWidth: false },
+  'waterfall':      { hasRadius: true,  hasSmooth: false, hasLog: false, hasGrid: true,  hasLineWidth: false, hasPointSize: false, hasBarWidth: true  },
+  'funnel':         { hasRadius: true,  hasSmooth: false, hasLog: false, hasGrid: false, hasLineWidth: false, hasPointSize: false, hasBarWidth: true  },
+  'sankey':         { hasRadius: true,  hasSmooth: false, hasLog: false, hasGrid: false, hasLineWidth: false, hasPointSize: false, hasBarWidth: false },
+  'radar':          { hasRadius: false, hasSmooth: false, hasLog: false, hasGrid: false, hasLineWidth: true,  hasPointSize: true,  hasBarWidth: false },
+  'bar-line':       { hasRadius: true,  hasSmooth: true,  hasLog: false, hasGrid: true,  hasLineWidth: true,  hasPointSize: true,  hasBarWidth: true  },
+  'gauge':          { hasRadius: false, hasSmooth: false, hasLog: false, hasGrid: false, hasLineWidth: false, hasPointSize: false, hasBarWidth: false },
+  'line-area':      { hasRadius: false, hasSmooth: true,  hasLog: true,  hasGrid: true,  hasLineWidth: true,  hasPointSize: true,  hasBarWidth: false },
+  'error-bar':      { hasRadius: true,  hasSmooth: false, hasLog: true,  hasGrid: true,  hasLineWidth: false, hasPointSize: false, hasBarWidth: true  },
 }
 
 export default function EditorPage() {
@@ -57,6 +91,8 @@ function EditorInner() {
 
   // ── Visual config ──
   const [vis, setVis] = useState<VisualConfig>(DEFAULT_VIS)
+  // Separate state for hex color input — allows partial typing without flashing
+  const [colorInput, setColorInput] = useState(DEFAULT_VIS.color)
 
   // ── Text overlays ──
   const [chartTitle, setChartTitle] = useState('')
@@ -89,6 +125,9 @@ function EditorInner() {
   // Keep a ref to the latest vis so the recreation effect always uses current values
   const visRef = useRef(vis)
   useEffect(() => { visRef.current = vis }, [vis])
+
+  // Sync colorInput when vis.color changes externally (swatch click, chart load)
+  useEffect(() => { setColorInput(vis.color) }, [vis.color])
 
   // ── Effect 1: Full recreation when structure changes (chart type, data, mappings) ──
   useEffect(() => {
@@ -237,36 +276,46 @@ function EditorInner() {
     const w = canvas.width * scale
     const h = canvas.height * scale
     const bgColors: Record<string, string> = { white: '#FFFFFF', offwhite: '#F7F3EC', dark: '#111111', transparent: 'transparent' }
+
+    // Add padding so title sits above the chart, not on top of it
+    const PAD_TOP = incTitle && chartTitle ? Math.round(54 * scale) : 0
+    const PAD_SIDES = Math.round(24 * scale)
+    const PAD_BOTTOM = Math.round(32 * scale)
+    const totalW = w + PAD_SIDES * 2
+    const totalH = h + PAD_TOP + PAD_BOTTOM
+
     const off = document.createElement('canvas')
-    off.width = w; off.height = h
+    off.width = totalW; off.height = totalH
     const ctx = off.getContext('2d')!
-    if (expBg !== 'transparent') { ctx.fillStyle = bgColors[expBg] || '#fff'; ctx.fillRect(0, 0, w, h) }
-    ctx.drawImage(canvas, 0, 0, w, h)
+
+    if (expBg !== 'transparent') { ctx.fillStyle = bgColors[expBg] || '#fff'; ctx.fillRect(0, 0, totalW, totalH) }
+    // Draw chart canvas offset down + right so title fits above
+    ctx.drawImage(canvas, PAD_SIDES, PAD_TOP, w, h)
+
+    // Title block above chart
     if (incTitle && chartTitle) {
-      ctx.save()
       ctx.fillStyle = expBg === 'dark' ? '#fff' : '#111'
-      ctx.font = `bold ${20 * scale}px Helvetica,Arial,sans-serif`
-      ctx.fillText(chartTitle, 20 * scale, 28 * scale)
+      ctx.font = `bold ${18 * scale}px Helvetica,Arial,sans-serif`
+      ctx.fillText(chartTitle, PAD_SIDES, 22 * scale)
       if (chartSubtitle) {
         ctx.font = `${12 * scale}px Helvetica,Arial,sans-serif`
         ctx.fillStyle = expBg === 'dark' ? '#aaa' : '#888'
-        ctx.fillText(chartSubtitle, 20 * scale, 44 * scale)
+        ctx.fillText(chartSubtitle, PAD_SIDES, 38 * scale)
       }
-      ctx.restore()
     }
+    // Source at bottom-left
     if (incTitle && chartSource) {
-      ctx.save()
       ctx.font = `${10 * scale}px Helvetica,Arial,sans-serif`
       ctx.fillStyle = expBg === 'dark' ? 'rgba(255,255,255,.5)' : 'rgba(0,0,0,.35)'
-      ctx.fillText(chartSource, 20 * scale, h - 16 * scale)
-      ctx.restore()
+      ctx.fillText(chartSource, PAD_SIDES, totalH - 12 * scale)
     }
+    // Watermark bottom-right (uses measureText so it's correctly right-aligned at any resolution)
     if (incWatermark) {
-      ctx.save()
+      const wm = 'Made with Plot · plot.so'
       ctx.font = `${9 * scale}px Helvetica,Arial,sans-serif`
-      ctx.fillStyle = expBg === 'dark' ? 'rgba(255,255,255,.25)' : 'rgba(0,0,0,.18)'
-      ctx.fillText('Made with Plot · plot.so', w - 160 * scale, h - 10 * scale)
-      ctx.restore()
+      ctx.fillStyle = expBg === 'dark' ? 'rgba(255,255,255,.2)' : 'rgba(0,0,0,.18)'
+      const wmW = ctx.measureText(wm).width
+      ctx.fillText(wm, totalW - wmW - PAD_SIDES, totalH - 8 * scale)
     }
     const link = document.createElement('a')
     link.download = `plot-${(chartTitle || 'chart').replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.png`
@@ -279,16 +328,25 @@ function EditorInner() {
     const canvas = canvasRef.current
     if (!canvas) return
     const base64 = canvas.toDataURL('image/png')
-    const titleLine = incTitle && chartTitle
-      ? `<text x="16" y="24" font-family="Helvetica,Arial,sans-serif" font-size="18" font-weight="bold" fill="${expBg === 'dark' ? '#fff' : '#111'}">${chartTitle}</text>` +
-        (chartSubtitle ? `<text x="16" y="40" font-family="Helvetica,Arial,sans-serif" font-size="12" fill="${expBg === 'dark' ? '#aaa' : '#888'}">${chartSubtitle}</text>` : '')
-      : ''
+    const titleH = incTitle && chartTitle ? 54 : 0
+    const svgH = canvas.height + titleH + 32  // +32 bottom padding
+    const svgW = canvas.width + 48             // +24 each side
     const bgFill = expBg === 'dark' ? '#111' : expBg === 'offwhite' ? '#F7F3EC' : expBg === 'transparent' ? 'none' : '#fff'
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${canvas.width}" height="${canvas.height}">
-  <rect width="${canvas.width}" height="${canvas.height}" fill="${bgFill}"/>
+    const textColor = expBg === 'dark' ? '#fff' : '#111'
+    const subtitleColor = expBg === 'dark' ? '#aaa' : '#888'
+    const titleLine = incTitle && chartTitle
+      ? `<text x="24" y="24" font-family="Helvetica,Arial,sans-serif" font-size="18" font-weight="bold" fill="${textColor}">${chartTitle}</text>` +
+        (chartSubtitle ? `<text x="24" y="42" font-family="Helvetica,Arial,sans-serif" font-size="12" fill="${subtitleColor}">${chartSubtitle}</text>` : '')
+      : ''
+    const sourceLine = incTitle && chartSource
+      ? `<text x="24" y="${svgH - 10}" font-family="Helvetica,Arial,sans-serif" font-size="10" fill="${expBg === 'dark' ? 'rgba(255,255,255,.5)' : 'rgba(0,0,0,.35)'}">${chartSource}</text>`
+      : ''
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${svgW}" height="${svgH}">
+  <rect width="${svgW}" height="${svgH}" fill="${bgFill}"/>
   ${titleLine}
-  <image href="${base64}" x="0" y="0" width="${canvas.width}" height="${canvas.height}"/>
-  ${incWatermark ? `<text x="${canvas.width - 120}" y="${canvas.height - 8}" font-family="Helvetica,Arial,sans-serif" font-size="9" fill="${expBg === 'dark' ? 'rgba(255,255,255,.25)' : 'rgba(0,0,0,.25)'}">Made with Plot</text>` : ''}
+  <image href="${base64}" x="24" y="${titleH}" width="${canvas.width}" height="${canvas.height}"/>
+  ${sourceLine}
+  ${incWatermark ? `<text x="${svgW - 145}" y="${svgH - 8}" font-family="Helvetica,Arial,sans-serif" font-size="9" fill="${expBg === 'dark' ? 'rgba(255,255,255,.25)' : 'rgba(0,0,0,.25)'}">Made with Plot · plot.so</text>` : ''}
 </svg>`
     const blob = new Blob([svg], { type: 'image/svg+xml' })
     const link = document.createElement('a')
@@ -302,6 +360,7 @@ function EditorInner() {
   const suggestedLabel = CHART_TYPES.find(t => t.id === suggestedType)?.label || 'Bar'
   const cardBg = BG_MAP[vis.bg] || '#fff'
   const cardText = vis.bg === 'dark' ? '#fff' : '#111'
+  const caps = CHART_CAPS[chartType] ?? CHART_CAPS['bar-vertical']
 
   return (
     <div style={{ fontFamily: 'Helvetica, Arial, sans-serif', minHeight: '100vh', background: '#F7F7F7', display: 'flex', flexDirection: 'column' }}>
@@ -432,7 +491,7 @@ function EditorInner() {
               <div style={{ marginTop: 20 }}>
                 {/* Inference bar */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, padding: '8px 12px', background: '#F0F7FF', borderRadius: 8, fontSize: 12, color: '#444' }}>
-                  <span dangerouslySetInnerHTML={{ __html: `Looks like <b>${colTypes[0] === 'date' ? 'a time series' : 'categorical data'}</b> — suggesting <b>${suggestedLabel} chart</b>` }} />
+                  <span dangerouslySetInnerHTML={{ __html: `Looks like <b>${colTypes.some(t => t === 'date') ? 'a time series' : 'categorical data'}</b> — suggesting <b>${suggestedLabel} chart</b>` }} />
                   <span style={{ marginLeft: 'auto', fontSize: 10, background: '#1D6EE8', color: '#fff', padding: '2px 7px', borderRadius: 10, fontWeight: 600 }}>auto-detected</span>
                 </div>
 
@@ -562,26 +621,70 @@ function EditorInner() {
             {openSections.visual && (
               <div style={{ padding: '12px 14px 16px' }}>
                 {/* Color swatches */}
-                <FieldLabel>Primary color</FieldLabel>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+                  <FieldLabel>Primary color</FieldLabel>
+                  <button
+                    onClick={() => { setVis(v => ({ ...v, color: '#1D6EE8', opacity: 85, radius: 4, lineWidth: 2.5, pointSize: 4, barWidth: 'auto' })); setColorInput('#1D6EE8') }}
+                    style={{ fontSize: 9, color: '#AAA', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'Helvetica, Arial, sans-serif' }}
+                  >Reset style</button>
+                </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
                   {SWATCHES.map(c => (
-                    <button key={c} onClick={() => setVis(v => ({ ...v, color: c }))} style={{ width: 24, height: 24, borderRadius: '50%', background: c, border: vis.color === c ? '2.5px solid #111' : '2.5px solid transparent', cursor: 'pointer', transform: vis.color === c ? 'scale(1.15)' : 'scale(1)', transition: 'all .1s' }} />
+                    <button key={c} onClick={() => { setVis(v => ({ ...v, color: c })); setColorInput(c) }} style={{ width: 24, height: 24, borderRadius: '50%', background: c, border: vis.color === c ? '2.5px solid #111' : '2.5px solid transparent', cursor: 'pointer', transform: vis.color === c ? 'scale(1.15)' : 'scale(1)', transition: 'all .1s' }} />
                   ))}
                   <input
                     type="text"
-                    value={vis.color}
-                    onChange={e => setVis(v => ({ ...v, color: e.target.value }))}
+                    value={colorInput}
+                    onChange={e => {
+                      const v = e.target.value
+                      setColorInput(v)
+                      if (/^#[0-9A-Fa-f]{6}$/.test(v)) setVis(prev => ({ ...prev, color: v }))
+                    }}
                     style={{ width: 70, padding: '4px 6px', border: '1px solid #E0E0E0', borderRadius: 4, fontSize: 10, fontFamily: 'monospace', background: '#fff', outline: 'none' }}
                   />
                 </div>
 
                 {/* Opacity */}
                 <FieldLabel>Opacity — {vis.opacity}%</FieldLabel>
-                <input type="range" min={10} max={100} value={vis.opacity} onChange={e => setVis(v => ({ ...v, opacity: +e.target.value }))} style={{ width: '100%', marginBottom: 12, accentColor: '#1D6EE8' }} />
+                <input type="range" min={0} max={100} value={vis.opacity} onChange={e => setVis(v => ({ ...v, opacity: +e.target.value }))} style={{ width: '100%', marginBottom: 12, accentColor: '#1D6EE8' }} />
 
-                {/* Corner radius */}
-                <FieldLabel>Corner radius — {vis.radius}px</FieldLabel>
-                <input type="range" min={0} max={16} value={vis.radius} onChange={e => setVis(v => ({ ...v, radius: +e.target.value }))} style={{ width: '100%', marginBottom: 12, accentColor: '#1D6EE8' }} />
+                {/* Corner radius — only for chart types that have rounded bars */}
+                {caps.hasRadius && (
+                  <>
+                    <FieldLabel>Corner radius — {vis.radius}px</FieldLabel>
+                    <input type="range" min={0} max={16} value={vis.radius} onChange={e => setVis(v => ({ ...v, radius: +e.target.value }))} style={{ width: '100%', marginBottom: 12, accentColor: '#1D6EE8' }} />
+                  </>
+                )}
+
+                {/* Line width — only for line/area chart types */}
+                {caps.hasLineWidth && (
+                  <>
+                    <FieldLabel>Line width — {vis.lineWidth ?? 2.5}</FieldLabel>
+                    <input type="range" min={1} max={5} step={0.5} value={vis.lineWidth ?? 2.5} onChange={e => setVis(v => ({ ...v, lineWidth: +e.target.value }))} style={{ width: '100%', marginBottom: 12, accentColor: '#1D6EE8' }} />
+                  </>
+                )}
+
+                {/* Point size — for scatter/line types */}
+                {caps.hasPointSize && (
+                  <>
+                    <FieldLabel>Point size — {vis.pointSize ?? 4}</FieldLabel>
+                    <input type="range" min={0} max={8} step={1} value={vis.pointSize ?? 4} onChange={e => setVis(v => ({ ...v, pointSize: +e.target.value }))} style={{ width: '100%', marginBottom: 12, accentColor: '#1D6EE8' }} />
+                  </>
+                )}
+
+                {/* Bar width — for bar chart types */}
+                {caps.hasBarWidth && (
+                  <>
+                    <FieldLabel>Bar width</FieldLabel>
+                    <div style={{ display: 'flex', gap: 4, marginBottom: 12 }}>
+                      {(['narrow', 'auto', 'wide'] as const).map(bw => (
+                        <button key={bw} onClick={() => setVis(v => ({ ...v, barWidth: bw }))} style={{ flex: 1, padding: '5px 0', fontSize: 9, fontWeight: 600, borderRadius: 5, border: (vis.barWidth ?? 'auto') === bw ? '1.5px solid #1D6EE8' : '1.5px solid #E0E0E0', background: (vis.barWidth ?? 'auto') === bw ? '#EEF4FF' : '#fff', color: (vis.barWidth ?? 'auto') === bw ? '#1D6EE8' : '#666', cursor: 'pointer', fontFamily: 'Helvetica, Arial, sans-serif', textTransform: 'capitalize' }}>
+                          {bw}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
 
                 {/* Background */}
                 <FieldLabel>Background</FieldLabel>
@@ -614,10 +717,10 @@ function EditorInner() {
                   <option value="pct">%</option>
                 </select>
 
-                <div style={{ display: 'flex', gap: 4 }}>
-                  <ToggleBtn active={vis.showGrid} onClick={() => setVis(v => ({ ...v, showGrid: !v.showGrid }))}>Grid</ToggleBtn>
-                  <ToggleBtn active={vis.smooth} onClick={() => setVis(v => ({ ...v, smooth: !v.smooth }))}>Smooth</ToggleBtn>
-                  <ToggleBtn active={vis.logScale} onClick={() => setVis(v => ({ ...v, logScale: !v.logScale }))}>Log</ToggleBtn>
+                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                  {caps.hasGrid && <ToggleBtn active={vis.showGrid} onClick={() => setVis(v => ({ ...v, showGrid: !v.showGrid }))}>Grid</ToggleBtn>}
+                  {caps.hasSmooth && <ToggleBtn active={vis.smooth} onClick={() => setVis(v => ({ ...v, smooth: !v.smooth }))}>Smooth</ToggleBtn>}
+                  {caps.hasLog && <ToggleBtn active={vis.logScale} onClick={() => setVis(v => ({ ...v, logScale: !v.logScale }))}>Log</ToggleBtn>}
                 </div>
               </div>
             )}
