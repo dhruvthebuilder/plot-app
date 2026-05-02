@@ -34,8 +34,25 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  const { data: { user } } = await supabase.auth.getUser()
   const isProtected = PROTECTED.some(r => request.nextUrl.pathname.startsWith(r))
+
+  // Race against a 4s timeout — if Supabase is unreachable, fail open on public
+  // routes and redirect to login on protected routes rather than hanging 25s.
+  let user = null
+  try {
+    const result = await Promise.race([
+      supabase.auth.getUser(),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000)),
+    ])
+    user = result.data.user
+  } catch {
+    if (isProtected) {
+      const loginUrl = new URL('/login', request.url)
+      loginUrl.searchParams.set('redirect', request.nextUrl.pathname)
+      return NextResponse.redirect(loginUrl)
+    }
+    return response
+  }
 
   if (!user && isProtected) {
     const loginUrl = new URL('/login', request.url)
