@@ -16,7 +16,7 @@ const jetbrainsMono = JetBrains_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'Plot — Brand-first charting',
+  title: 'Glyph — Brand-first charting',
   description: 'Charts that look like you made them. Brand-first charting tool for finance teams, analysts, and content creators.',
 }
 

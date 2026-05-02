@@ -56,7 +56,7 @@ export function CheckoutButton({ plan, className, children, onSuccess }: Props) 
       const rzp = new window.Razorpay({
         key: key_id,
         subscription_id,
-        name: 'Plot',
+        name: 'Glyph',
         description: plan === 'pro' ? 'Pro — $1/month' : 'Business — $5/month',
         handler: () => {
           // Webhook handles plan activation in the background.

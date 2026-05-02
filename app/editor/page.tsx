@@ -311,7 +311,7 @@ function EditorInner() {
     }
     // Watermark bottom-right (uses measureText so it's correctly right-aligned at any resolution)
     if (incWatermark) {
-      const wm = 'Made with Plot · plot.so'
+      const wm = 'Made with Glyph · useglyph.in'
       ctx.font = `${9 * scale}px Helvetica,Arial,sans-serif`
       ctx.fillStyle = expBg === 'dark' ? 'rgba(255,255,255,.2)' : 'rgba(0,0,0,.18)'
       const wmW = ctx.measureText(wm).width
@@ -346,7 +346,7 @@ function EditorInner() {
   ${titleLine}
   <image href="${base64}" x="24" y="${titleH}" width="${canvas.width}" height="${canvas.height}"/>
   ${sourceLine}
-  ${incWatermark ? `<text x="${svgW - 145}" y="${svgH - 8}" font-family="Helvetica,Arial,sans-serif" font-size="9" fill="${expBg === 'dark' ? 'rgba(255,255,255,.25)' : 'rgba(0,0,0,.25)'}">Made with Plot · plot.so</text>` : ''}
+  ${incWatermark ? `<text x="${svgW - 145}" y="${svgH - 8}" font-family="Helvetica,Arial,sans-serif" font-size="9" fill="${expBg === 'dark' ? 'rgba(255,255,255,.25)' : 'rgba(0,0,0,.25)'}">Made with Glyph · useglyph.in</text>` : ''}
 </svg>`
     const blob = new Blob([svg], { type: 'image/svg+xml' })
     const link = document.createElement('a')
@@ -379,7 +379,7 @@ function EditorInner() {
               <circle cx="12.5" cy="0.5" r="1.5" fill="var(--color-blue)" />
             </svg>
           </div>
-          <span style={{ fontSize: 16, fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--color-text)' }}>Plot</span>
+          <span style={{ fontSize: 16, fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--color-text)' }}>Glyph</span>
         </Link>
 
         {/* Step tabs */}
@@ -750,7 +750,7 @@ function EditorInner() {
                 <FieldLabel>Source</FieldLabel>
                 <input value={chartSource} onChange={e => setChartSource(e.target.value)} placeholder="Source: ..." style={{ ...inputStyle, marginBottom: 12 }} />
 
-                <ToggleBtn active={incWatermark} onClick={() => setIncWatermark(w => !w)}>Plot watermark</ToggleBtn>
+                <ToggleBtn active={incWatermark} onClick={() => setIncWatermark(w => !w)}>Glyph watermark</ToggleBtn>
               </div>
             )}
           </div>
@@ -773,7 +773,7 @@ function EditorInner() {
                   <div style={{ fontSize: 10, color: vis.bg === 'dark' ? 'rgba(255,255,255,.5)' : 'rgba(0,0,0,.4)', marginTop: 8 }}>{chartSource}</div>
                 )}
                 {incWatermark && (
-                  <div style={{ fontSize: 9, color: vis.bg === 'dark' ? 'rgba(255,255,255,.2)' : 'rgba(0,0,0,.18)', marginTop: 4, textAlign: 'right' }}>Made with Plot · plot.so</div>
+                  <div style={{ fontSize: 9, color: vis.bg === 'dark' ? 'rgba(255,255,255,.2)' : 'rgba(0,0,0,.18)', marginTop: 4, textAlign: 'right' }}>Made with Glyph · useglyph.in</div>
                 )}
               </div>
             </div>

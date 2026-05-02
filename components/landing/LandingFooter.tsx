@@ -15,7 +15,7 @@ export function LandingFooter() {
         <Link href="/terms" className="font-mono text-[11px] text-muted hover:text-text transition-colors">
           Terms
         </Link>
-        <Link href="mailto:hello@plot.so" className="font-mono text-[11px] text-muted hover:text-text transition-colors">
+        <Link href="mailto:hello@useglyph.in" className="font-mono text-[11px] text-muted hover:text-text transition-colors">
           Contact
         </Link>
       </div>

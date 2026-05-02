@@ -128,7 +128,7 @@ export function SettingsClient({ plan, profile, brandKit, chartCount, chartLimit
               <circle cx="12.5" cy="0.5" r="1.5" fill="var(--color-blue)"/>
             </svg>
           </div>
-          <span className="text-[15px] font-bold tracking-[-0.03em] text-text">Plot</span>
+          <span className="text-[15px] font-bold tracking-[-0.03em] text-text">Glyph</span>
         </Link>
         <div className="flex items-center gap-2">
           <Link

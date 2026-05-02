@@ -7,12 +7,12 @@ const STEPS = [
     num: '01',
     icon: ClipboardList,
     title: 'Paste your data',
-    desc: 'Drop in a CSV, paste from Excel, or type it manually. Plot reads the columns and understands what kind of data you have.',
+    desc: 'Drop in a CSV, paste from Excel, or type it manually. Glyph reads the columns and understands what kind of data you have.',
   },
   {
     num: '02',
     icon: Sparkles,
-    title: 'Plot picks the chart',
+    title: 'Glyph picks the chart',
     desc: 'Time series becomes a line chart. Percentages become a donut. Financial data becomes candlestick. Auto-detected, always overridable.',
   },
   {

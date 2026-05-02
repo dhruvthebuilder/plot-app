@@ -32,7 +32,7 @@ export function Logo({ size = 'md', showName = true, showDots = true, href = '/'
         </svg>
       </div>
       {showName && (
-        <span className={`${s.text} font-bold tracking-[-0.03em] text-text`}>Plot</span>
+        <span className={`${s.text} font-bold tracking-[-0.03em] text-text`}>Glyph</span>
       )}
     </Link>
   )

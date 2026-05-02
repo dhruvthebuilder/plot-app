@@ -42,7 +42,7 @@ export function Hero() {
 
         {/* Subhead */}
         <p className="text-[17px] text-muted leading-[1.65] max-w-[420px]">
-          Paste a CSV. Plot reads it, picks the right chart, and applies{' '}
+          Paste a CSV. Glyph reads it, picks the right chart, and applies{' '}
           <strong className="text-text font-semibold">your brand</strong>{' '}
           automatically. Export PNG or SVG in seconds — ready for decks, reports, and social posts.
         </p>
@@ -155,7 +155,7 @@ export function Hero() {
           {/* Footer */}
           <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
             <div className="font-mono text-[9px] text-faint">
-              Made with <strong className="text-muted">Plot</strong>
+              Made with <strong className="text-muted">Glyph</strong>
             </div>
             <div className="flex items-center gap-1.5">
               <div className="w-2 h-2 rounded-[2px] bg-blue" />

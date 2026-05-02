@@ -11,7 +11,7 @@ const CARDS = [
   {
     icon: Zap,
     title: "Auto-detection that's actually smart",
-    desc: 'Plot reads your data structure — date columns, percentages, OHLC, categories — and picks the right chart type before you do.',
+    desc: 'Glyph reads your data structure — date columns, percentages, OHLC, categories — and picks the right chart type before you do.',
   },
   {
     icon: Share2,
@@ -25,7 +25,7 @@ const CARDS = [
   },
 ]
 
-export function WhyPlot() {
+export function WhyGlyph() {
   const headRef = useFadeUp(0)
   const gridRef = useFadeUp(100)
 
@@ -33,7 +33,7 @@ export function WhyPlot() {
     <section className="max-w-[1100px] mx-auto px-8 py-20">
       <div ref={headRef}>
         <div className="font-mono text-[11px] font-medium tracking-[0.12em] uppercase text-muted mb-3">
-          Why Plot
+          Why Glyph
         </div>
         <h2 className="text-[clamp(28px,4vw,44px)] font-extrabold tracking-[-0.03em] leading-[1.1]">
           Built for people who<br />care how things look.
@@ -63,9 +63,9 @@ export function WhyPlot() {
               Made for finance, works for everyone
             </div>
             <div className="text-[12px] text-muted leading-[1.65] max-w-[640px]">
-              Plot was built by people who make financial charts for a living — analysts, investors, fund managers.
+              Glyph was built by people who make financial charts for a living — analysts, investors, fund managers.
               The chart types, tick formatting (₹, $, %, 1K/1M), and data patterns it understands reflect that.
-              If you&apos;ve ever spent 40 minutes reformatting an Excel chart for a deck, Plot is for you.
+              If you&apos;ve ever spent 40 minutes reformatting an Excel chart for a deck, Glyph is for you.
             </div>
           </div>
         </div>

@@ -8,7 +8,7 @@ const PLANS = [
     name: 'Free',
     price: '$0',
     sub: null,
-    desc: 'For individuals exploring Plot.',
+    desc: 'For individuals exploring Glyph.',
     features: [
       { label: '5 charts', included: true },
       { label: 'Auto chart detection', included: true },
@@ -78,7 +78,7 @@ export function Pricing() {
           Start free.<br />Scale when you need to.
         </h2>
         <p className="text-[16px] text-muted leading-[1.6] max-w-[480px]">
-          No trial periods. No credit card for free plan. Upgrade when Plot earns it.
+          No trial periods. No credit card for free plan. Upgrade when Glyph earns it.
         </p>
       </div>
 

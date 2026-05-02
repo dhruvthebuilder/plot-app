@@ -20,14 +20,14 @@ const client = [
 if (typeof window === 'undefined') {
   for (const key of server) {
     if (!process.env[key]) {
-      console.warn(`[Plot] Missing server env var: ${key}`)
+      console.warn(`[Glyph] Missing server env var: ${key}`)
     }
   }
 }
 
 for (const key of client) {
   if (!process.env[key]) {
-    console.warn(`[Plot] Missing client env var: ${key}`)
+    console.warn(`[Glyph] Missing client env var: ${key}`)
   }
 }
 
