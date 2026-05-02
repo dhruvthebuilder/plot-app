@@ -1,6 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { useFadeUp } from '@/hooks/useFadeUp'
+import { Check, Minus } from 'lucide-react'
 
 const PLANS = [
   {
@@ -12,7 +13,7 @@ const PLANS = [
       { label: '5 charts', included: true },
       { label: 'Auto chart detection', included: true },
       { label: 'PNG export (1×)', included: true },
-      { label: 'Plot watermark on exports', included: false },
+      { label: 'No watermark', included: false },
       { label: 'Brand kit', included: false },
       { label: 'Social overlay', included: false },
       { label: 'SVG export', included: false },
@@ -85,27 +86,27 @@ export function Pricing() {
         {PLANS.map(plan => (
           <div
             key={plan.name}
-            className={`bg-surface rounded-[12px] p-7 flex flex-col gap-5 transition-transform hover:-translate-y-[3px] ${
+            className={`rounded-[12px] p-7 flex flex-col gap-5 transition-all hover:-translate-y-1 ${
               plan.featured
-                ? 'border-[1.5px] border-blue shadow-[0_0_0_4px_var(--color-blue-bg)]'
-                : 'border-[1.5px] border-border'
+                ? 'bg-surface border border-blue shadow-[0_0_0_3px_var(--color-blue-bg),0_8px_32px_rgba(91,156,246,0.12)]'
+                : 'bg-surface border border-border hover:border-border-strong'
             }`}
           >
             <div>
               <div className="flex items-center justify-between">
-                <div className="text-[12px] font-semibold tracking-[0.06em] uppercase text-muted">
+                <div className="text-[11px] font-semibold tracking-[0.08em] uppercase text-muted">
                   {plan.name}
                 </div>
                 {'badge' in plan && plan.badge && (
-                  <span className="font-mono text-[9px] bg-blue-bg text-blue-dark px-2 py-0.5 rounded-full font-medium">
+                  <span className="font-mono text-[9px] bg-blue-bg text-blue px-2 py-0.5 rounded-full font-medium">
                     {plan.badge}
                   </span>
                 )}
               </div>
-              <div className="text-[40px] font-extrabold tracking-[-0.04em] leading-none mt-2">
+              <div className="text-[42px] font-extrabold tracking-[-0.04em] leading-none mt-3">
                 {plan.price}
                 {plan.sub && (
-                  <sub className="text-[14px] font-normal text-muted tracking-normal align-baseline">
+                  <sub className="text-[14px] font-normal text-muted tracking-normal align-baseline ml-0.5">
                     {plan.sub}
                   </sub>
                 )}
@@ -113,29 +114,29 @@ export function Pricing() {
               <div className="font-mono text-[11px] text-muted leading-[1.6] mt-2">{plan.desc}</div>
             </div>
 
-            <div className="flex flex-col gap-2 flex-1">
+            <div className="flex flex-col gap-[10px] flex-1">
               {plan.features.map(feat => (
                 <div
                   key={feat.label}
-                  className={`flex items-center gap-2 text-[12px] ${!feat.included ? 'text-faint line-through' : ''}`}
+                  className={`flex items-center gap-2.5 text-[12px] ${feat.included ? 'text-text' : 'text-faint'}`}
                 >
-                  <span
-                    className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                    style={{ background: feat.included ? '#1D6EE8' : '#C8C8C8' }}
-                  />
-                  {feat.label}
+                  {feat.included
+                    ? <Check className="w-3.5 h-3.5 text-green flex-shrink-0" />
+                    : <Minus className="w-3.5 h-3.5 text-faint flex-shrink-0" />
+                  }
+                  <span className={feat.included ? '' : 'line-through'}>{feat.label}</span>
                 </div>
               ))}
             </div>
 
             <Link
               href={plan.ctaHref}
-              className={`block text-[13px] font-semibold px-4 py-[9px] rounded-[7px] text-center transition-colors ${
+              className={`block text-[13px] font-semibold px-4 py-[10px] rounded-[8px] text-center transition-all ${
                 plan.ctaStyle === 'blue'
-                  ? 'bg-blue text-white border border-blue hover:bg-blue-dark hover:border-blue-dark'
+                  ? 'bg-blue text-white hover:opacity-90'
                   : plan.ctaStyle === 'dark'
-                  ? 'bg-text text-white border border-text hover:bg-[#333]'
-                  : 'bg-transparent text-text border border-border-strong hover:border-text'
+                  ? 'bg-text text-bg hover:opacity-90'
+                  : 'bg-surface-2 text-text border border-border hover:border-border-strong'
               }`}
             >
               {plan.cta}

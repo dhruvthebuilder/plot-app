@@ -3,29 +3,33 @@
 
 @theme inline {
   /* Fonts */
-  --font-sans: var(--font-syne), sans-serif;
-  --font-mono: var(--font-ibm-plex-mono), monospace;
+  --font-sans: var(--font-inter), sans-serif;
+  --font-mono: var(--font-jetbrains-mono), monospace;
 
-  /* Signal colors */
-  --color-bg: #FAFAFA;
-  --color-surface: #FFFFFF;
-  --color-border: #E4E4E4;
-  --color-border-strong: #C8C8C8;
-  --color-text: #111111;
-  --color-muted: #888888;
-  --color-faint: #C8C8C8;
-  --color-blue: #1D6EE8;
-  --color-blue-bg: #EBF2FD;
-  --color-blue-dark: #1357BF;
-  --color-amber: #F0A500;
-  --color-amber-bg: #FEF6E4;
-  --color-green: #16A34A;
-  --color-green-bg: #F0FDF4;
+  /* Dark palette */
+  --color-bg: #0C0C0C;
+  --color-surface: #141414;
+  --color-surface-2: #1C1C1C;
+  --color-border: #222222;
+  --color-border-strong: #333333;
+  --color-text: #EBEBEB;
+  --color-muted: #737373;
+  --color-faint: #3D3D3D;
+  --color-blue: #5B9CF6;
+  --color-blue-bg: #0F2044;
+  --color-blue-dark: #7ABCFF;
+  --color-amber: #F5A623;
+  --color-amber-bg: #2C1A00;
+  --color-green: #34D399;
+  --color-green-bg: #0A2010;
+  --color-red: #F87171;
+  --color-red-bg: #2D0A0A;
 
-  /* Border radius */
+  /* Radius */
   --radius-sm: 6px;
   --radius: 8px;
   --radius-lg: 12px;
+  --radius-xl: 16px;
 
   /* Letter spacing */
   --tracking-heading: -0.02em;
@@ -43,31 +47,40 @@
     background-color: var(--color-bg);
     color: var(--color-text);
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 }
 
 /* Scrollbar */
 ::-webkit-scrollbar { width: 4px; height: 4px; }
-::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 2px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-border-strong); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-faint); }
 
-/* Landing page floating chip animation */
+/* Selection */
+::selection {
+  background: var(--color-blue-bg);
+  color: var(--color-blue-dark);
+}
+
+/* Focus ring */
+:focus-visible {
+  outline: 2px solid var(--color-blue);
+  outline-offset: 2px;
+}
+
+/* Floating chip */
 @keyframes plotFloat {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-6px); }
 }
 
-/* Section reveal animation — used by editor step 2 and step 3 */
+/* Section reveal — editor step 2 and step 3 */
 .reveal-section {
   animation: revealIn 0.3s ease forwards;
 }
 
 @keyframes revealIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
 }

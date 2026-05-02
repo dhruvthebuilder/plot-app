@@ -1,22 +1,23 @@
 'use client'
 import { useFadeUp } from '@/hooks/useFadeUp'
+import { ClipboardList, Sparkles, Download } from 'lucide-react'
 
 const STEPS = [
   {
     num: '01',
-    icon: '📋',
+    icon: ClipboardList,
     title: 'Paste your data',
     desc: 'Drop in a CSV, paste from Excel, or type it manually. Plot reads the columns and understands what kind of data you have.',
   },
   {
     num: '02',
-    icon: '✦',
+    icon: Sparkles,
     title: 'Plot picks the chart',
     desc: 'Time series becomes a line chart. Percentages become a donut. Financial data becomes candlestick. Auto-detected, always overridable.',
   },
   {
     num: '03',
-    icon: '↓',
+    icon: Download,
     title: 'Export, instantly',
     desc: 'Download PNG at 1×, 2×, or 3× resolution. SVG for print. Add social media text overlays for LinkedIn and X — all in one click.',
   },
@@ -40,22 +41,21 @@ export function HowItWorks() {
         </p>
       </div>
 
-      <div ref={gridRef} className="grid grid-cols-3 gap-5 mt-12">
+      <div ref={gridRef} className="grid grid-cols-3 gap-4 mt-12">
         {STEPS.map(step => (
           <div
             key={step.num}
-            className="bg-surface border border-border rounded-[12px] p-6 relative overflow-hidden group"
+            className="bg-surface border border-border rounded-[12px] p-6 relative overflow-hidden group hover:border-blue transition-colors"
           >
-            <div className="font-mono text-[11px] font-medium text-faint tracking-[0.08em] mb-4">
+            <div className="font-mono text-[10px] font-medium text-faint tracking-[0.08em] mb-5">
               {step.num}
             </div>
-            <div className="w-10 h-10 rounded-[8px] bg-bg border border-border flex items-center justify-center text-[18px] mb-3.5">
-              {step.icon}
+            <div className="w-10 h-10 rounded-[9px] bg-blue-bg border border-blue/20 flex items-center justify-center mb-4">
+              <step.icon className="w-5 h-5 text-blue" />
             </div>
-            <div className="text-[16px] font-bold tracking-[-0.02em] mb-1.5">{step.title}</div>
-            <div className="text-[13px] text-muted leading-[1.6]">{step.desc}</div>
-            {/* Blue bottom border on hover */}
-            <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-blue opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+            <div className="text-[15px] font-semibold tracking-[-0.01em] mb-2">{step.title}</div>
+            <div className="text-[13px] text-muted leading-[1.65]">{step.desc}</div>
+            <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-blue opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
           </div>
         ))}
       </div>

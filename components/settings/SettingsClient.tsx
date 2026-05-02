@@ -7,8 +7,9 @@ import { createClient } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
 import type { PlanType } from '@/lib/plans'
 import { CheckoutButton } from '@/components/upgrade/CheckoutButton'
+import { ArrowLeft, Upload, Check, Save } from 'lucide-react'
 
-const BRAND_COLORS = ['#1D6EE8', '#111111', '#F0A500', '#10B981', '#E24B4A', '#7C3AED', '#EC4899']
+const BRAND_COLORS = ['#5B9CF6', '#EBEBEB', '#F5A623', '#34D399', '#F87171', '#A78BFA', '#EC4899']
 
 interface Profile {
   id: string
@@ -38,9 +39,9 @@ interface Props {
 }
 
 const planBadgeClass: Record<PlanType, string> = {
-  free: 'bg-[#F0F0F0] text-muted',
-  pro: 'bg-amber-bg text-[#B07800]',
-  biz: 'bg-blue-bg text-blue-dark',
+  free: 'bg-surface-2 text-muted',
+  pro: 'bg-amber-bg text-amber',
+  biz: 'bg-blue-bg text-blue',
 }
 
 const planLabel: Record<PlanType, string> = {
@@ -52,17 +53,12 @@ const planLabel: Record<PlanType, string> = {
 export function SettingsClient({ plan, profile, brandKit, chartCount, chartLimit, storageMb, email }: Props) {
   const router = useRouter()
 
-  // Profile state
   const [firstName, setFirstName] = useState(profile?.first_name || '')
   const [lastName, setLastName] = useState(profile?.last_name || '')
   const [company, setCompany] = useState(profile?.company || '')
   const [industry, setIndustry] = useState(profile?.industry || 'Finance & Investment')
-
-  // Brand kit state
-  const [brandColor, setBrandColor] = useState(brandKit?.primary_color || '#1D6EE8')
+  const [brandColor, setBrandColor] = useState(brandKit?.primary_color || '#5B9CF6')
   const [logoUploaded, setLogoUploaded] = useState(!!brandKit?.logo_url)
-
-  // UI state
   const [saving, setSaving] = useState(false)
   const [saveState, setSaveState] = useState<'idle' | 'saved' | 'error'>('idle')
   const [passwordSent, setPasswordSent] = useState(false)
@@ -115,71 +111,77 @@ export function SettingsClient({ plan, profile, brandKit, chartCount, chartLimit
     router.push('/')
   }
 
+  const inputCls = 'w-full text-[13px] px-3 py-[9px] border border-border rounded-[8px] bg-bg text-text outline-none focus:border-blue transition-colors placeholder:text-muted'
+
   return (
     <div className="min-h-screen bg-bg flex flex-col">
       {/* Nav */}
-      <nav className="bg-surface border-b border-border h-[52px] flex items-center justify-between px-6 sticky top-0 z-50">
+      <nav className="bg-surface border-b border-border h-[52px] flex items-center justify-between px-5 sticky top-0 z-50">
         <Link href="/" className="flex items-center gap-2">
-          <div className="w-[28px] h-[28px] bg-text rounded-[6px] flex items-center justify-center">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <rect x="1" y="8" width="3" height="7" fill="white" rx="1" />
-              <rect x="6" y="4" width="3" height="11" fill="white" rx="1" />
-              <rect x="11" y="1" width="3" height="14" fill="white" rx="1" />
-              <circle cx="2.5" cy="7" r="1.5" fill="#1D6EE8" />
-              <circle cx="7.5" cy="3" r="1.5" fill="#1D6EE8" />
-              <circle cx="12.5" cy="0.5" r="1.5" fill="#1D6EE8" />
+          <div className="w-[26px] h-[26px] bg-text rounded-[5px] flex items-center justify-center">
+            <svg viewBox="0 0 16 16" fill="none" className="w-3.5 h-3.5">
+              <rect x="1" y="8" width="3" height="7" fill="var(--color-bg)" rx="1"/>
+              <rect x="6" y="4" width="3" height="11" fill="var(--color-bg)" rx="1"/>
+              <rect x="11" y="1" width="3" height="14" fill="var(--color-bg)" rx="1"/>
+              <circle cx="2.5" cy="7" r="1.5" fill="var(--color-blue)"/>
+              <circle cx="7.5" cy="3" r="1.5" fill="var(--color-blue)"/>
+              <circle cx="12.5" cy="0.5" r="1.5" fill="var(--color-blue)"/>
             </svg>
           </div>
-          <span className="text-[16px] font-extrabold tracking-[-0.03em]">Plot</span>
+          <span className="text-[15px] font-bold tracking-[-0.03em] text-text">Plot</span>
         </Link>
         <div className="flex items-center gap-2">
           <Link
             href="/dashboard"
-            className="text-[13px] font-medium px-4 py-[7px] rounded-[8px] border border-border-strong text-text hover:bg-bg hover:border-text transition-all"
+            className="inline-flex items-center gap-1.5 text-[13px] font-medium px-3 py-[7px] rounded-[8px] border border-border text-muted hover:text-text hover:border-border-strong transition-all"
           >
-            ← Dashboard
+            <ArrowLeft className="w-3.5 h-3.5" />
+            Dashboard
           </Link>
           <button
             onClick={handleSave}
             disabled={saving}
             className={cn(
-              'text-[13px] font-medium px-4 py-[7px] rounded-[8px] border transition-all',
+              'inline-flex items-center gap-1.5 text-[13px] font-medium px-3 py-[7px] rounded-[8px] border transition-all disabled:opacity-50',
               saveState === 'saved'
                 ? 'border-green bg-green-bg text-green'
                 : saveState === 'error'
-                ? 'border-[#E24B4A] bg-[#FEF2F2] text-[#E24B4A]'
-                : 'bg-text text-white border-text hover:bg-[#333]'
+                ? 'border-red bg-red-bg text-red'
+                : 'bg-text text-bg border-text hover:opacity-90'
             )}
           >
-            {saveState === 'saved' ? 'Saved ✓' : saveState === 'error' ? 'Failed — try again' : saving ? 'Saving…' : 'Save changes'}
+            {saveState === 'saved'
+              ? <><Check className="w-3.5 h-3.5" /> Saved</>
+              : saveState === 'error'
+              ? 'Failed — retry'
+              : saving
+              ? 'Saving…'
+              : <><Save className="w-3.5 h-3.5" /> Save changes</>
+            }
           </button>
         </div>
       </nav>
 
-      <div className="flex-1 py-7 px-6 overflow-auto">
+      <div className="flex-1 py-8 px-6 overflow-auto">
         <div className="max-w-[640px] mx-auto">
-          <h1 className="text-[22px] font-bold tracking-[-0.02em] mb-6">Brand kit &amp; account</h1>
+          <h1 className="text-[20px] font-bold tracking-[-0.02em] mb-6">Brand kit &amp; account</h1>
 
           {/* Brand identity */}
           <div className="bg-surface border border-border rounded-[12px] p-6 mb-4">
-            <div className="text-[13px] font-bold mb-1">Brand identity</div>
-            <div className="font-mono text-[11px] text-muted mb-[18px]">Applied automatically to every chart you create</div>
+            <div className="text-[13px] font-semibold mb-0.5">Brand identity</div>
+            <div className="font-mono text-[11px] text-muted mb-5">Applied automatically to every chart you create</div>
 
             <div className="grid grid-cols-2 gap-3 mb-4">
               <div>
-                <label className="block font-mono text-[11px] text-muted font-medium mb-1.5">Brand name</label>
-                <input
-                  value={company}
-                  onChange={e => setCompany(e.target.value)}
-                  className="w-full text-[13px] px-3 py-[9px] border border-border rounded-[8px] bg-bg text-text outline-none focus:border-blue transition-colors"
-                />
+                <label className="block font-mono text-[10px] text-muted font-medium mb-1.5 uppercase tracking-[0.06em]">Brand name</label>
+                <input value={company} onChange={e => setCompany(e.target.value)} className={inputCls} />
               </div>
               <div>
-                <label className="block font-mono text-[11px] text-muted font-medium mb-1.5">Industry</label>
+                <label className="block font-mono text-[10px] text-muted font-medium mb-1.5 uppercase tracking-[0.06em]">Industry</label>
                 <select
                   value={industry}
                   onChange={e => setIndustry(e.target.value)}
-                  className="w-full font-mono text-[11px] px-3 py-[9px] border border-border rounded-[8px] bg-bg text-text outline-none focus:border-blue transition-colors cursor-pointer"
+                  className="w-full font-mono text-[12px] px-3 py-[9px] border border-border rounded-[8px] bg-bg text-text outline-none focus:border-blue transition-colors cursor-pointer"
                 >
                   <option>Finance &amp; Investment</option>
                   <option>Marketing &amp; Media</option>
@@ -192,7 +194,7 @@ export function SettingsClient({ plan, profile, brandKit, chartCount, chartLimit
             </div>
 
             <div className="mb-4">
-              <label className="block font-mono text-[11px] text-muted font-medium mb-1.5">Primary color</label>
+              <label className="block font-mono text-[10px] text-muted font-medium mb-2 uppercase tracking-[0.06em]">Primary color</label>
               <div className="flex items-center gap-2 flex-wrap">
                 {BRAND_COLORS.map(c => (
                   <button
@@ -200,61 +202,66 @@ export function SettingsClient({ plan, profile, brandKit, chartCount, chartLimit
                     type="button"
                     onClick={() => setBrandColor(c)}
                     className={cn(
-                      'w-8 h-8 rounded-full border-2 transition-all',
-                      brandColor === c ? 'border-text scale-110' : 'border-transparent'
+                      'w-7 h-7 rounded-full border-2 transition-all',
+                      brandColor === c ? 'border-text scale-110 shadow-[0_0_0_1px_var(--color-bg)]' : 'border-transparent hover:scale-105'
                     )}
                     style={{ background: c }}
                   />
                 ))}
-                <span className="font-mono text-[11px] text-muted">Hex</span>
-                <input
-                  type="text"
-                  value={brandColor}
-                  onChange={e => setBrandColor(e.target.value)}
-                  className="w-[80px] px-2 py-1 border border-border rounded-[4px] font-mono text-[11px] bg-bg outline-none"
-                />
+                <div className="flex items-center gap-1.5 ml-1">
+                  <span className="font-mono text-[10px] text-muted">HEX</span>
+                  <input
+                    type="text"
+                    value={brandColor}
+                    onChange={e => setBrandColor(e.target.value)}
+                    className="w-[88px] px-2 py-1.5 border border-border rounded-[6px] font-mono text-[11px] bg-bg text-text outline-none focus:border-blue transition-colors"
+                  />
+                </div>
               </div>
             </div>
 
-            <div className="mb-4">
-              <label className="block font-mono text-[11px] text-muted font-medium mb-1.5">Logo</label>
+            <div className="mb-5">
+              <label className="block font-mono text-[10px] text-muted font-medium mb-2 uppercase tracking-[0.06em]">Logo</label>
               <div
                 onClick={() => setLogoUploaded(true)}
                 className={cn(
-                  'border-2 border-dashed rounded-[8px] p-4 text-center cursor-pointer transition-colors',
-                  logoUploaded ? 'border-green bg-green-bg' : 'border-border hover:border-blue-dark'
+                  'border border-dashed rounded-[8px] p-5 text-center cursor-pointer transition-all',
+                  logoUploaded
+                    ? 'border-green bg-green-bg'
+                    : 'border-border hover:border-blue hover:bg-blue-bg'
                 )}
               >
-                <div className="text-[18px] mb-1">{logoUploaded ? '✓' : '↑'}</div>
-                <div className={cn('text-[10px] font-mono', logoUploaded ? 'text-green' : 'text-muted')}>
-                  {logoUploaded ? 'Logo uploaded' : 'Upload PNG or SVG logo · max 2MB'}
+                {logoUploaded
+                  ? <Check className="w-5 h-5 text-green mx-auto mb-1" />
+                  : <Upload className="w-5 h-5 text-muted mx-auto mb-1" />
+                }
+                <div className={cn('text-[11px] font-mono', logoUploaded ? 'text-green' : 'text-muted')}>
+                  {logoUploaded ? 'Logo uploaded' : 'Click to upload PNG or SVG · max 2MB'}
                 </div>
               </div>
             </div>
 
             {/* Brand preview */}
-            <div className="bg-bg border border-border rounded-[8px] p-4 flex items-center gap-3">
+            <div className="bg-bg border border-border rounded-[8px] p-3.5 flex items-center gap-3">
               <div
-                className="w-11 h-11 rounded-[8px] flex items-center justify-center text-white text-[14px] font-bold flex-shrink-0"
+                className="w-10 h-10 rounded-[8px] flex items-center justify-center text-white text-[14px] font-bold flex-shrink-0"
                 style={{ background: brandColor }}
               >
                 {(company[0] || 'A').toUpperCase()}
               </div>
               <div>
-                <div className="text-[13px] font-bold">{company || 'Your brand'}</div>
-                <div className="font-mono text-[11px] text-muted">
-                  {industry} · {brandColor}
-                </div>
+                <div className="text-[13px] font-semibold">{company || 'Your brand'}</div>
+                <div className="font-mono text-[10px] text-muted">{industry} · {brandColor}</div>
               </div>
             </div>
           </div>
 
           {/* Current plan */}
           <div className="bg-surface border border-border rounded-[12px] p-6 mb-4">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-start justify-between mb-5">
               <div>
-                <div className="text-[13px] font-bold mb-1">Current plan</div>
-                <span className={cn('font-mono text-[11px] px-[10px] py-[3px] rounded-full', planBadgeClass[plan])}>
+                <div className="text-[13px] font-semibold mb-1.5">Current plan</div>
+                <span className={cn('font-mono text-[10px] px-[10px] py-[3px] rounded-full font-medium', planBadgeClass[plan])}>
                   {planLabel[plan]}
                 </span>
               </div>
@@ -276,71 +283,44 @@ export function SettingsClient({ plan, profile, brandKit, chartCount, chartLimit
               )}
             </div>
 
-            <div className="grid grid-cols-3 gap-[10px]">
-              <div className="bg-bg rounded-[8px] p-3">
-                <div className="text-[9px] font-mono text-muted uppercase tracking-[0.08em] mb-1">Charts</div>
-                <div className="text-[16px] font-bold mb-1.5">
-                  {chartCount}{' '}
-                  <span className="text-[12px] text-muted font-normal">
-                    / {chartLimit === Infinity ? '∞' : chartLimit}
-                  </span>
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { label: 'Charts', value: chartCount, max: chartLimit === Infinity ? '∞' : chartLimit, pct: chartUsePct },
+                { label: 'Storage', value: '—', max: `${storageMb}MB`, pct: 0 },
+                { label: 'Brand profiles', value: 1, max: plan === 'free' ? 0 : plan === 'pro' ? 1 : 3, pct: 100 },
+              ].map(stat => (
+                <div key={stat.label} className="bg-bg rounded-[8px] p-3">
+                  <div className="text-[9px] font-mono text-muted uppercase tracking-[0.08em] mb-1.5">{stat.label}</div>
+                  <div className="text-[15px] font-bold mb-2">
+                    {stat.value}{' '}
+                    <span className="text-[11px] text-muted font-normal">/ {stat.max}</span>
+                  </div>
+                  <div className="h-[3px] bg-border rounded-full overflow-hidden">
+                    <div className="h-full bg-blue rounded-full" style={{ width: `${stat.pct}%` }} />
+                  </div>
                 </div>
-                <div className="h-1 bg-border rounded-full overflow-hidden">
-                  <div className="h-full bg-blue rounded-full" style={{ width: `${chartUsePct}%` }} />
-                </div>
-              </div>
-
-              <div className="bg-bg rounded-[8px] p-3">
-                <div className="text-[9px] font-mono text-muted uppercase tracking-[0.08em] mb-1">Storage</div>
-                <div className="text-[16px] font-bold mb-1.5">
-                  — <span className="text-[12px] text-muted font-normal">/ {storageMb}MB</span>
-                </div>
-                <div className="h-1 bg-border rounded-full overflow-hidden">
-                  <div className="h-full bg-blue rounded-full" style={{ width: '0%' }} />
-                </div>
-              </div>
-
-              <div className="bg-bg rounded-[8px] p-3">
-                <div className="text-[9px] font-mono text-muted uppercase tracking-[0.08em] mb-1">Brand profiles</div>
-                <div className="text-[16px] font-bold mb-1.5">
-                  1{' '}
-                  <span className="text-[12px] text-muted font-normal">
-                    / {plan === 'free' ? '0' : plan === 'pro' ? '1' : '3'}
-                  </span>
-                </div>
-                <div className="h-1 bg-border rounded-full overflow-hidden">
-                  <div className="h-full bg-blue rounded-full" style={{ width: '100%' }} />
-                </div>
-              </div>
+              ))}
             </div>
           </div>
 
           {/* Account */}
           <div className="bg-surface border border-border rounded-[12px] p-6">
-            <div className="text-[13px] font-bold mb-1">Account</div>
-            <div className="font-mono text-[11px] text-muted mb-[18px]">Your personal details</div>
+            <div className="text-[13px] font-semibold mb-0.5">Account</div>
+            <div className="font-mono text-[11px] text-muted mb-5">Your personal details</div>
 
             <div className="grid grid-cols-2 gap-3 mb-3">
               <div>
-                <label className="block font-mono text-[11px] text-muted font-medium mb-1.5">First name</label>
-                <input
-                  value={firstName}
-                  onChange={e => setFirstName(e.target.value)}
-                  className="w-full text-[13px] px-3 py-[9px] border border-border rounded-[8px] bg-bg text-text outline-none focus:border-blue transition-colors"
-                />
+                <label className="block font-mono text-[10px] text-muted font-medium mb-1.5 uppercase tracking-[0.06em]">First name</label>
+                <input value={firstName} onChange={e => setFirstName(e.target.value)} className={inputCls} />
               </div>
               <div>
-                <label className="block font-mono text-[11px] text-muted font-medium mb-1.5">Last name</label>
-                <input
-                  value={lastName}
-                  onChange={e => setLastName(e.target.value)}
-                  className="w-full text-[13px] px-3 py-[9px] border border-border rounded-[8px] bg-bg text-text outline-none focus:border-blue transition-colors"
-                />
+                <label className="block font-mono text-[10px] text-muted font-medium mb-1.5 uppercase tracking-[0.06em]">Last name</label>
+                <input value={lastName} onChange={e => setLastName(e.target.value)} className={inputCls} />
               </div>
             </div>
 
-            <div className="mb-4">
-              <label className="block font-mono text-[11px] text-muted font-medium mb-1.5">Email</label>
+            <div className="mb-5">
+              <label className="block font-mono text-[10px] text-muted font-medium mb-1.5 uppercase tracking-[0.06em]">Email</label>
               <input
                 value={email}
                 disabled
@@ -349,14 +329,14 @@ export function SettingsClient({ plan, profile, brandKit, chartCount, chartLimit
             </div>
 
             {passwordSent ? (
-              <p className="text-[12px] font-mono text-green mb-4">
-                ✓ Check your inbox — reset link sent to {email}
+              <p className="text-[12px] font-mono text-green mb-4 flex items-center gap-1.5">
+                <Check className="w-3.5 h-3.5" /> Reset link sent to {email}
               </p>
             ) : (
               <button
                 type="button"
                 onClick={handlePasswordReset}
-                className="text-[12px] text-muted hover:text-text transition-colors mb-4 block"
+                className="text-[12px] text-muted hover:text-text transition-colors mb-5 block"
               >
                 Change password →
               </button>
@@ -366,7 +346,7 @@ export function SettingsClient({ plan, profile, brandKit, chartCount, chartLimit
               <button
                 type="button"
                 onClick={handleSignOut}
-                className="text-[12px] font-mono text-muted hover:text-text transition-colors"
+                className="text-[12px] font-mono text-muted hover:text-red transition-colors"
               >
                 Sign out
               </button>

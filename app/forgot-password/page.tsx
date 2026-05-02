@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { Logo } from '@/components/landing/Logo'
+import { Check } from 'lucide-react'
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
@@ -37,10 +38,12 @@ export default function ForgotPasswordPage() {
         <Logo size="md" />
       </div>
 
-      <div className="w-full max-w-[480px] bg-surface border border-border rounded-[12px] p-8">
+      <div className="w-full max-w-[400px] bg-surface border border-border rounded-[12px] p-8">
         {sent ? (
           <div className="text-center">
-            <div className="w-12 h-12 bg-green-bg border border-green rounded-full flex items-center justify-center text-green text-[20px] mx-auto mb-4">✓</div>
+            <div className="w-12 h-12 bg-green-bg border border-green rounded-full flex items-center justify-center mx-auto mb-4">
+              <Check className="w-5 h-5 text-green" />
+            </div>
             <h1 className="text-[20px] font-bold tracking-[-0.02em] mb-2">Check your inbox</h1>
             <p className="font-mono text-[12px] text-muted">
               We sent a reset link to <strong className="text-text">{email}</strong>
@@ -66,12 +69,12 @@ export default function ForgotPasswordPage() {
                 />
               </div>
 
-              {error && <p className="font-mono text-[11px] text-[#E24B4A]">{error}</p>}
+              {error && <p className="font-mono text-[11px] text-red">{error}</p>}
 
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full mt-1 py-[9px] px-4 bg-text text-white text-[13px] font-semibold rounded-[8px] border border-text hover:bg-[#333] transition-colors disabled:opacity-50"
+                className="w-full mt-1 py-[9px] px-4 bg-text text-bg text-[13px] font-semibold rounded-[8px] border border-text hover:opacity-90 transition-colors disabled:opacity-50"
               >
                 {loading ? 'Sending…' : 'Send reset link'}
               </button>

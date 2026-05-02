@@ -9,7 +9,7 @@ export function ProofStrip() {
         </div>
         <div className="flex items-center justify-center gap-10 flex-wrap">
           {LOGOS.map(name => (
-            <span key={name} className="font-mono text-[13px] font-medium text-faint tracking-[0.04em]">
+            <span key={name} className="font-mono text-[12px] font-medium text-faint tracking-[0.06em] hover:text-muted transition-colors">
               {name}
             </span>
           ))}

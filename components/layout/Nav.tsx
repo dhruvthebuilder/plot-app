@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
+import { ArrowLeft, Palette, Save, Plus, Download } from 'lucide-react'
 
 interface NavProps {
   showPlanBadge?: boolean
@@ -29,22 +30,31 @@ export function Nav({
   isSaving = false,
 }: NavProps) {
   return (
-    <nav className="bg-surface border-b border-border h-[52px] flex items-center justify-between px-6 sticky top-0 z-50 flex-shrink-0">
+    <nav className="bg-surface border-b border-border h-[52px] flex items-center justify-between px-5 sticky top-0 z-50 flex-shrink-0">
       {/* Logo */}
-      <Link href="/" className="flex items-center gap-[7px] cursor-pointer">
-        <div className="w-2 h-2 bg-blue rounded-full" />
-        <span className="text-[16px] font-extrabold tracking-[-0.03em]">Plot</span>
+      <Link href="/" className="flex items-center gap-2 cursor-pointer">
+        <div className="w-[26px] h-[26px] bg-text rounded-[5px] flex items-center justify-center flex-shrink-0">
+          <svg viewBox="0 0 16 16" fill="none" className="w-3.5 h-3.5">
+            <rect x="1" y="8" width="3" height="7" fill="var(--color-bg)" rx="1"/>
+            <rect x="6" y="4" width="3" height="11" fill="var(--color-bg)" rx="1"/>
+            <rect x="11" y="1" width="3" height="14" fill="var(--color-bg)" rx="1"/>
+            <circle cx="2.5" cy="7" r="1.5" fill="var(--color-blue)"/>
+            <circle cx="7.5" cy="3" r="1.5" fill="var(--color-blue)"/>
+            <circle cx="12.5" cy="0.5" r="1.5" fill="var(--color-blue)"/>
+          </svg>
+        </div>
+        <span className="text-[15px] font-bold tracking-[-0.03em] text-text">Plot</span>
       </Link>
 
       {/* Right side */}
-      <div className="flex items-center gap-[10px]">
+      <div className="flex items-center gap-2">
         {showPlanBadge && (
           <span
             className={cn(
               'font-mono text-[10px] font-medium px-[9px] py-[3px] rounded-full tracking-[0.04em]',
-              plan === 'free' && 'bg-[#F0F0F0] text-muted',
-              plan === 'pro' && 'bg-amber-bg text-[#B07800]',
-              plan === 'biz' && 'bg-blue-bg text-blue-dark'
+              plan === 'free' && 'bg-surface-2 text-muted',
+              plan === 'pro' && 'bg-amber-bg text-amber',
+              plan === 'biz' && 'bg-blue-bg text-blue'
             )}
           >
             {plan === 'free' && 'Free'}
@@ -56,17 +66,19 @@ export function Nav({
         {showDashboardBack && (
           <Link
             href="/dashboard"
-            className="font-sans text-[13px] font-medium px-4 py-2 rounded-[8px] border border-border-strong bg-transparent text-text hover:bg-bg hover:border-text transition-all tracking-[0.01em]"
+            className="inline-flex items-center gap-1.5 text-[13px] font-medium px-3 py-[7px] rounded-[8px] border border-border text-muted hover:text-text hover:border-border-strong transition-all"
           >
-            ← Dashboard
+            <ArrowLeft className="w-3.5 h-3.5" />
+            Dashboard
           </Link>
         )}
 
         {showBrandKit && (
           <Link
             href="/settings"
-            className="font-sans text-[13px] font-medium px-4 py-2 rounded-[8px] border border-border-strong bg-transparent text-text hover:bg-bg hover:border-text transition-all tracking-[0.01em]"
+            className="inline-flex items-center gap-1.5 text-[13px] font-medium px-3 py-[7px] rounded-[8px] border border-border text-muted hover:text-text hover:border-border-strong transition-all"
           >
+            <Palette className="w-3.5 h-3.5" />
             Brand kit
           </Link>
         )}
@@ -75,35 +87,37 @@ export function Nav({
           <button
             onClick={onSave}
             disabled={isSaving}
-            className="font-sans text-[13px] font-medium px-4 py-2 rounded-[8px] border border-border-strong bg-transparent text-text hover:bg-bg hover:border-text transition-all tracking-[0.01em] disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 text-[13px] font-medium px-3 py-[7px] rounded-[8px] border border-border text-muted hover:text-text hover:border-border-strong transition-all disabled:opacity-40"
           >
-            {isSaving ? 'Saving...' : 'Save'}
+            <Save className="w-3.5 h-3.5" />
+            {isSaving ? 'Saving…' : 'Save'}
           </button>
         )}
 
         {showNewChart && (
           <Link
             href="/editor"
-            className="font-sans text-[13px] font-medium px-4 py-2 rounded-[8px] border border-text bg-text text-white hover:bg-[#333] hover:border-[#333] transition-all tracking-[0.01em]"
+            className="inline-flex items-center gap-1.5 text-[13px] font-semibold px-3 py-[7px] rounded-[8px] bg-text text-bg hover:opacity-90 transition-all"
           >
-            + New chart
+            <Plus className="w-3.5 h-3.5" />
+            New chart
           </Link>
         )}
 
         {showExport && (
           <button
             onClick={onExport}
-            className="font-sans text-[13px] font-medium px-4 py-2 rounded-[8px] border border-text bg-text text-white hover:bg-[#333] hover:border-[#333] transition-all tracking-[0.01em]"
+            className="inline-flex items-center gap-1.5 text-[13px] font-semibold px-3 py-[7px] rounded-[8px] bg-blue text-white hover:opacity-90 transition-all"
           >
-            ↓ Export
+            <Download className="w-3.5 h-3.5" />
+            Export
           </button>
         )}
 
-        {/* Sign in button on landing page */}
         {!showPlanBadge && !showDashboardBack && !showNewChart && !showSave && !showExport && (
           <Link
             href="/signup"
-            className="font-sans text-[13px] font-medium px-4 py-2 rounded-[8px] border border-border-strong bg-transparent text-text hover:bg-bg hover:border-text transition-all tracking-[0.01em]"
+            className="text-[13px] font-medium px-3 py-[7px] rounded-[8px] border border-border text-muted hover:text-text hover:border-border-strong transition-all"
           >
             Sign in
           </Link>

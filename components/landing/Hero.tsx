@@ -23,13 +23,13 @@ export function Hero() {
         gridTemplateColumns: '1fr 1fr',
         paddingTop: 80,
         paddingBottom: 60,
-        minHeight: 'calc(100vh - 52px)',
+        minHeight: 'calc(100vh - 56px)',
       }}
     >
       {/* Left */}
       <div ref={leftRef} className="flex flex-col gap-7">
         {/* Badge */}
-        <div className="inline-flex items-center gap-2 bg-blue-bg text-blue-dark font-mono text-[11px] font-medium px-3 py-[5px] rounded-full w-fit tracking-[0.04em]">
+        <div className="inline-flex items-center gap-2 bg-blue-bg text-blue font-mono text-[11px] font-medium px-3 py-[5px] rounded-full w-fit tracking-[0.04em]">
           <span className="w-1.5 h-1.5 bg-blue rounded-full animate-pulse" />
           Built for finance teams &amp; analysts
         </div>
@@ -51,13 +51,13 @@ export function Hero() {
         <div className="flex items-center gap-3 flex-wrap">
           <Link
             href="/signup"
-            className="text-[14px] font-semibold px-[22px] py-[11px] rounded-[8px] bg-text text-white border border-text hover:bg-[#333] transition-colors inline-flex items-center gap-2"
+            className="text-[14px] font-semibold px-[22px] py-[11px] rounded-[8px] bg-text text-bg hover:opacity-90 transition-colors inline-flex items-center gap-2"
           >
             Start for free →
           </Link>
           <Link
             href="#how"
-            className="text-[14px] font-semibold px-[22px] py-[11px] rounded-[8px] bg-transparent text-muted border border-border-strong hover:border-text hover:text-text transition-colors"
+            className="text-[14px] font-medium px-[22px] py-[11px] rounded-[8px] bg-transparent text-muted border border-border hover:border-border-strong hover:text-text transition-colors"
           >
             See how it works
           </Link>
@@ -67,10 +67,10 @@ export function Hero() {
         <div className="flex items-center gap-2.5">
           <div className="flex">
             {[
-              { bg: '#1D6EE8', letter: 'D' },
-              { bg: '#111', letter: 'R' },
-              { bg: '#F0A500', letter: 'A' },
-              { bg: '#10B981', letter: 'K' },
+              { bg: '#5B9CF6', letter: 'D' },
+              { bg: '#34D399', letter: 'R' },
+              { bg: '#F5A623', letter: 'A' },
+              { bg: '#A78BFA', letter: 'K' },
             ].map((face, i) => (
               <div
                 key={i}
@@ -91,14 +91,14 @@ export function Hero() {
       <div ref={rightRef} className="relative">
         {/* Floating chips */}
         <div
-          className="absolute -top-4 right-10 bg-surface border border-border rounded-[8px] px-3 py-2 font-mono text-[10px] text-text shadow-[0_2px_12px_rgba(0,0,0,0.08)] flex items-center gap-1.5 whitespace-nowrap z-10"
+          className="absolute -top-4 right-10 bg-surface-2 border border-border rounded-[8px] px-3 py-2 font-mono text-[10px] text-text shadow-[0_4px_20px_rgba(0,0,0,0.4)] flex items-center gap-1.5 whitespace-nowrap z-10"
           style={{ animation: 'plotFloat 3s ease-in-out infinite' }}
         >
-          <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
+          <span className="w-1.5 h-1.5 rounded-full bg-green" />
           Auto-detected: Line chart
         </div>
         <div
-          className="absolute bottom-[60px] -right-8 bg-surface border border-border rounded-[8px] px-3 py-2 font-mono text-[10px] text-text shadow-[0_2px_12px_rgba(0,0,0,0.08)] flex items-center gap-1.5 whitespace-nowrap z-10"
+          className="absolute bottom-[60px] -right-8 bg-surface-2 border border-border rounded-[8px] px-3 py-2 font-mono text-[10px] text-text shadow-[0_4px_20px_rgba(0,0,0,0.4)] flex items-center gap-1.5 whitespace-nowrap z-10"
           style={{ animation: 'plotFloat 3s ease-in-out infinite', animationDelay: '1.5s' }}
         >
           <span className="w-1.5 h-1.5 rounded-full bg-blue" />
@@ -106,14 +106,14 @@ export function Hero() {
         </div>
 
         {/* Chart card */}
-        <div className="bg-surface border border-border rounded-[14px] p-6 shadow-[0_4px_40px_rgba(0,0,0,0.06)]">
+        <div className="bg-surface border border-border rounded-[14px] p-6 shadow-[0_8px_60px_rgba(0,0,0,0.5)]">
           {/* Card header */}
           <div className="flex items-start justify-between mb-4">
             <div>
               <div className="text-[16px] font-bold tracking-[-0.02em]">Q1–Q4 Revenue 2024</div>
               <div className="font-mono text-[10px] text-muted mt-0.5">Aeon Capital · Internal data</div>
             </div>
-            <div className="font-mono text-[10px] font-medium px-[10px] py-[5px] rounded-[5px] border border-border bg-bg text-muted flex items-center gap-1.5">
+            <div className="font-mono text-[10px] font-medium px-[10px] py-[5px] rounded-[5px] border border-border bg-surface-2 text-muted flex items-center gap-1.5">
               ↓ PNG
             </div>
           </div>
@@ -137,7 +137,7 @@ export function Hero() {
             {/* Grid lines */}
             <div className="absolute left-0 right-0 top-0 flex flex-col justify-between pointer-events-none" style={{ height: 'calc(100% - 24px)' }}>
               {[0, 1, 2, 3].map(i => (
-                <div key={i} className="w-full h-px bg-[#F0F0F0]" />
+                <div key={i} className="w-full h-px bg-border" />
               ))}
             </div>
             {/* Bars */}
@@ -145,7 +145,7 @@ export function Hero() {
               <div key={i} className="flex-1 flex flex-col items-center gap-1.5">
                 <div
                   className="w-full rounded-t-[4px]"
-                  style={{ height: bar.height, background: '#1D6EE8', opacity: bar.opacity }}
+                  style={{ height: bar.height, background: 'var(--color-blue)', opacity: bar.opacity }}
                 />
                 <div className="font-mono text-[9px] text-muted">{BAR_LABELS[i]}</div>
               </div>

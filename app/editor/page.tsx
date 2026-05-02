@@ -363,23 +363,23 @@ function EditorInner() {
   const caps = CHART_CAPS[chartType] ?? CHART_CAPS['bar-vertical']
 
   return (
-    <div style={{ fontFamily: 'Helvetica, Arial, sans-serif', minHeight: '100vh', background: '#F7F7F7', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--color-bg)', display: 'flex', flexDirection: 'column' }}>
 
       {/* ── Nav ── */}
-      <nav style={{ background: '#fff', borderBottom: '1px solid #E8E8E8', height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', position: 'sticky', top: 0, zIndex: 50 }}>
+      <nav style={{ background: 'var(--color-surface)', borderBottom: '1px solid var(--color-border)', height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', position: 'sticky', top: 0, zIndex: 50 }}>
         {/* Logo */}
         <Link href="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none', color: 'inherit' }}>
-          <div style={{ width: 28, height: 28, background: '#111', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: 28, height: 28, background: 'var(--color-text)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <rect x="1" y="8" width="3" height="7" fill="white" rx="1" />
-              <rect x="6" y="4" width="3" height="11" fill="white" rx="1" />
-              <rect x="11" y="1" width="3" height="14" fill="white" rx="1" />
-              <circle cx="2.5" cy="7" r="1.5" fill="#1D6EE8" />
-              <circle cx="7.5" cy="3" r="1.5" fill="#1D6EE8" />
-              <circle cx="12.5" cy="0.5" r="1.5" fill="#1D6EE8" />
+              <rect x="1" y="8" width="3" height="7" fill="var(--color-bg)" rx="1" />
+              <rect x="6" y="4" width="3" height="11" fill="var(--color-bg)" rx="1" />
+              <rect x="11" y="1" width="3" height="14" fill="var(--color-bg)" rx="1" />
+              <circle cx="2.5" cy="7" r="1.5" fill="var(--color-blue)" />
+              <circle cx="7.5" cy="3" r="1.5" fill="var(--color-blue)" />
+              <circle cx="12.5" cy="0.5" r="1.5" fill="var(--color-blue)" />
             </svg>
           </div>
-          <span style={{ fontSize: 16, fontWeight: 800, letterSpacing: '-0.03em' }}>Plot</span>
+          <span style={{ fontSize: 16, fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--color-text)' }}>Plot</span>
         </Link>
 
         {/* Step tabs */}
@@ -391,8 +391,8 @@ function EditorInner() {
             return (
               <div key={label} style={{
                 fontSize: 11, fontWeight: 600, padding: '4px 12px', borderRadius: 6,
-                color: isActive ? '#111' : isDone ? '#10B981' : '#AAA',
-                background: isActive ? '#F0F0F0' : 'transparent',
+                color: isActive ? 'var(--color-text)' : isDone ? 'var(--color-green)' : 'var(--color-faint)',
+                background: isActive ? 'var(--color-surface-2)' : 'transparent',
               }}>
                 {label}
               </div>
@@ -411,9 +411,9 @@ function EditorInner() {
               disabled={isSaving}
               style={{
                 ...navBtnStyle,
-                background: saveState === 'saved' ? '#F0FDF4' : saveState === 'error' ? '#FEF2F2' : '#fff',
-                color: saveState === 'saved' ? '#16A34A' : saveState === 'error' ? '#E24B4A' : '#111',
-                borderColor: saveState === 'saved' ? '#BBF7D0' : saveState === 'error' ? '#FCA5A5' : '#D8D8D8',
+                background: saveState === 'saved' ? 'var(--color-green-bg)' : saveState === 'error' ? 'var(--color-red-bg)' : 'var(--color-surface)',
+                color: saveState === 'saved' ? 'var(--color-green)' : saveState === 'error' ? 'var(--color-red)' : 'var(--color-text)',
+                borderColor: saveState === 'saved' ? 'var(--color-green)' : saveState === 'error' ? 'var(--color-red)' : 'var(--color-border-strong)',
               }}
             >
               {saveState === 'saved' ? 'Saved ✓' : saveState === 'error' ? 'Failed — retry' : isSaving ? 'Saving…' : 'Save'}
@@ -423,13 +423,13 @@ function EditorInner() {
             <button
               onClick={() => { if (table) setCurrentStep(2) }}
               disabled={!table}
-              style={{ ...navBtnStyle, background: table ? '#111' : '#E8E8E8', color: table ? '#fff' : '#AAA', borderColor: table ? '#111' : '#E8E8E8', cursor: table ? 'pointer' : 'not-allowed' }}
+              style={{ ...navBtnStyle, background: table ? 'var(--color-text)' : 'var(--color-surface-2)', color: table ? 'var(--color-bg)' : 'var(--color-faint)', borderColor: table ? 'var(--color-text)' : 'var(--color-surface-2)', cursor: table ? 'pointer' : 'not-allowed' }}
             >
               Next →
             </button>
           )}
           {currentStep === 2 && (
-            <button onClick={() => setShowExport(true)} style={{ ...navBtnStyle, background: '#1D6EE8', color: '#fff', borderColor: '#1D6EE8' }}>
+            <button onClick={() => setShowExport(true)} style={{ ...navBtnStyle, background: 'var(--color-blue)', color: 'var(--color-bg)', borderColor: 'var(--color-blue)' }}>
               ↓ Export
             </button>
           )}
@@ -448,27 +448,27 @@ function EditorInner() {
               onDragLeave={() => setDragOver(false)}
               onDrop={e => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) handleFile(f) }}
               style={{
-                border: `2px dashed ${dragOver ? '#1D6EE8' : '#D8D8D8'}`,
+                border: `2px dashed ${dragOver ? 'var(--color-blue)' : 'var(--color-border-strong)'}`,
                 borderRadius: 12,
                 padding: '32px 20px',
                 textAlign: 'center',
                 cursor: 'pointer',
-                background: dragOver ? '#EEF4FF' : '#fff',
+                background: dragOver ? 'var(--color-blue-bg)' : 'var(--color-surface)',
                 transition: 'all .15s',
                 marginBottom: 16,
               }}
             >
-              <div style={{ fontSize: 28, marginBottom: 8, color: '#888' }}>↑</div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: '#333', marginBottom: 4 }}>Drop a file here</div>
-              <div style={{ fontSize: 11, color: '#AAA' }}>CSV, TSV, or Excel (.xlsx)</div>
+              <div style={{ fontSize: 28, marginBottom: 8, color: 'var(--color-muted)' }}>↑</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-text)', marginBottom: 4 }}>Drop a file here</div>
+              <div style={{ fontSize: 11, color: 'var(--color-faint)' }}>CSV, TSV, or Excel (.xlsx)</div>
               <input ref={fileInputRef} type="file" accept=".csv,.tsv,.txt,.xlsx,.xls" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
             </div>
 
             {/* Divider */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-              <div style={{ flex: 1, height: 1, background: '#E8E8E8' }} />
-              <span style={{ fontSize: 11, color: '#AAA', whiteSpace: 'nowrap' }}>or paste directly</span>
-              <div style={{ flex: 1, height: 1, background: '#E8E8E8' }} />
+              <div style={{ flex: 1, height: 1, background: 'var(--color-border)' }} />
+              <span style={{ fontSize: 11, color: 'var(--color-faint)', whiteSpace: 'nowrap' }}>or paste directly</span>
+              <div style={{ flex: 1, height: 1, background: 'var(--color-border)' }} />
             </div>
 
             {/* Paste textarea */}
@@ -479,9 +479,9 @@ function EditorInner() {
               onChange={e => { setPasteText(e.target.value); if (e.target.value.trim()) { processText(e.target.value) } else { setTable(null) } }}
               style={{
                 width: '100%', boxSizing: 'border-box', padding: '10px 12px',
-                border: '1px solid #D8D8D8', borderRadius: 8, fontSize: 12,
-                fontFamily: 'Helvetica, Arial, sans-serif', resize: 'vertical',
-                outline: 'none', background: '#fff', color: '#111',
+                border: '1px solid var(--color-border-strong)', borderRadius: 8, fontSize: 12,
+                fontFamily: 'inherit', resize: 'vertical',
+                outline: 'none', background: 'var(--color-surface)', color: 'var(--color-text)',
                 lineHeight: 1.6,
               }}
             />
@@ -490,37 +490,37 @@ function EditorInner() {
             {table && (
               <div style={{ marginTop: 20 }}>
                 {/* Inference bar */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, padding: '8px 12px', background: '#F0F7FF', borderRadius: 8, fontSize: 12, color: '#444' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, padding: '8px 12px', background: 'var(--color-blue-bg)', borderRadius: 8, fontSize: 12, color: 'var(--color-text)' }}>
                   <span dangerouslySetInnerHTML={{ __html: `Looks like <b>${colTypes.some(t => t === 'date') ? 'a time series' : 'categorical data'}</b> — suggesting <b>${suggestedLabel} chart</b>` }} />
-                  <span style={{ marginLeft: 'auto', fontSize: 10, background: '#1D6EE8', color: '#fff', padding: '2px 7px', borderRadius: 10, fontWeight: 600 }}>auto-detected</span>
+                  <span style={{ marginLeft: 'auto', fontSize: 10, background: 'var(--color-blue)', color: 'var(--color-bg)', padding: '2px 7px', borderRadius: 10, fontWeight: 600 }}>auto-detected</span>
                 </div>
 
                 {/* Stats */}
-                <div style={{ fontSize: 11, color: '#888', marginBottom: 8 }}>
+                <div style={{ fontSize: 11, color: 'var(--color-muted)', marginBottom: 8 }}>
                   {table.colCount} cols · {table.rowCount} rows
                 </div>
 
                 {/* Preview table */}
-                <div style={{ overflowX: 'auto', borderRadius: 8, border: '1px solid #E8E8E8' }}>
+                <div style={{ overflowX: 'auto', borderRadius: 8, border: '1px solid var(--color-border)' }}>
                   <table style={{ width: '100%', fontSize: 11, borderCollapse: 'collapse' }}>
                     <thead>
-                      <tr style={{ background: '#F7F7F7' }}>
+                      <tr style={{ background: 'var(--color-surface-2)' }}>
                         {table.headers.map((h, i) => (
-                          <th key={i} style={{ padding: '7px 10px', textAlign: 'left', fontWeight: 600, color: '#555', borderBottom: '1px solid #E8E8E8', whiteSpace: 'nowrap' }}>{h || `Col ${i + 1}`}</th>
+                          <th key={i} style={{ padding: '7px 10px', textAlign: 'left', fontWeight: 600, color: 'var(--color-muted)', borderBottom: '1px solid var(--color-border)', whiteSpace: 'nowrap' }}>{h || `Col ${i + 1}`}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {table.rows.slice(0, 5).map((row, ri) => (
-                        <tr key={ri} style={{ borderBottom: ri < 4 && ri < table.rows.length - 1 ? '1px solid #F0F0F0' : 'none' }}>
+                        <tr key={ri} style={{ borderBottom: ri < 4 && ri < table.rows.length - 1 ? '1px solid var(--color-border)' : 'none' }}>
                           {row.map((cell, ci) => (
-                            <td key={ci} style={{ padding: '6px 10px', color: '#333' }}>{cell}</td>
+                            <td key={ci} style={{ padding: '6px 10px', color: 'var(--color-text)' }}>{cell}</td>
                           ))}
                         </tr>
                       ))}
                       {table.rowCount > 5 && (
                         <tr>
-                          <td colSpan={table.colCount} style={{ padding: '7px 10px', color: '#AAA', fontSize: 10, textAlign: 'center' }}>
+                          <td colSpan={table.colCount} style={{ padding: '7px 10px', color: 'var(--color-faint)', fontSize: 10, textAlign: 'center' }}>
                             +{table.rowCount - 5} more rows
                           </td>
                         </tr>
@@ -533,7 +533,7 @@ function EditorInner() {
                 <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
                   <button
                     onClick={() => setCurrentStep(2)}
-                    style={{ padding: '9px 20px', background: '#111', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'Helvetica, Arial, sans-serif' }}
+                    style={{ padding: '9px 20px', background: 'var(--color-text)', color: 'var(--color-bg)', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
                   >
                     Use this →
                   </button>
@@ -549,7 +549,7 @@ function EditorInner() {
         <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
 
           {/* Left panel */}
-          <div style={{ width: 272, minWidth: 272, background: '#fff', borderRight: '1px solid #E8E8E8', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ width: 272, minWidth: 272, background: 'var(--color-surface)', borderRight: '1px solid var(--color-border)', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
 
             {/* ── Section: Chart type ── */}
             <SectionHeader label="Chart type" open={openSections.type} onToggle={() => toggleSection('type')} />
@@ -560,7 +560,7 @@ function EditorInner() {
                   placeholder="Search chart types..."
                   value={typeSearch}
                   onChange={e => setTypeSearch(e.target.value)}
-                  style={{ width: '100%', boxSizing: 'border-box', padding: '6px 8px', border: '1px solid #E0E0E0', borderRadius: 6, fontSize: 11, fontFamily: 'Helvetica, Arial, sans-serif', background: '#F7F7F7', outline: 'none', marginBottom: 10 }}
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '6px 8px', border: '1px solid var(--color-border)', borderRadius: 6, fontSize: 11, fontFamily: 'inherit', background: 'var(--color-bg)', color: 'var(--color-text)', outline: 'none', marginBottom: 10 }}
                 />
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 4 }}>
                   {CHART_TYPES.filter(ct => !typeSearch || ct.label.toLowerCase().includes(typeSearch.toLowerCase()) || ct.group.toLowerCase().includes(typeSearch.toLowerCase())).map(ct => (
@@ -571,10 +571,10 @@ function EditorInner() {
                       style={{
                         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
                         padding: '7px 4px', borderRadius: 6, cursor: 'pointer',
-                        border: chartType === ct.id ? '1.5px solid #1D6EE8' : '1.5px solid transparent',
-                        background: chartType === ct.id ? '#EEF4FF' : '#F7F7F7',
-                        color: chartType === ct.id ? '#1D6EE8' : '#666',
-                        fontSize: 9, fontWeight: 600, fontFamily: 'Helvetica, Arial, sans-serif',
+                        border: chartType === ct.id ? '1.5px solid var(--color-blue)' : '1.5px solid transparent',
+                        background: chartType === ct.id ? 'var(--color-blue-bg)' : 'var(--color-bg)',
+                        color: chartType === ct.id ? 'var(--color-blue)' : 'var(--color-muted)',
+                        fontSize: 9, fontWeight: 600, fontFamily: 'inherit',
                         transition: 'all .1s',
                         position: 'relative',
                       }}
@@ -582,13 +582,13 @@ function EditorInner() {
                       <span dangerouslySetInnerHTML={{ __html: ct.icon }} style={{ display: 'flex', width: 16, height: 12 }} />
                       <span style={{ fontSize: 8.5, lineHeight: 1, textAlign: 'center' }}>{ct.label}</span>
                       {ct.id === suggestedType && (
-                        <span style={{ position: 'absolute', top: 2, right: 2, width: 5, height: 5, background: '#1D6EE8', borderRadius: '50%' }} />
+                        <span style={{ position: 'absolute', top: 2, right: 2, width: 5, height: 5, background: 'var(--color-blue)', borderRadius: '50%' }} />
                       )}
                     </button>
                   ))}
                 </div>
-                <div style={{ fontSize: 9, color: '#AAA', marginTop: 8 }}>
-                  <span style={{ display: 'inline-block', width: 5, height: 5, background: '#1D6EE8', borderRadius: '50%', marginRight: 4, verticalAlign: 'middle' }} />
+                <div style={{ fontSize: 9, color: 'var(--color-faint)', marginTop: 8 }}>
+                  <span style={{ display: 'inline-block', width: 5, height: 5, background: 'var(--color-blue)', borderRadius: '50%', marginRight: 4, verticalAlign: 'middle' }} />
                   auto-suggested for your data
                 </div>
               </div>
@@ -600,11 +600,11 @@ function EditorInner() {
               <div style={{ padding: '12px 14px 16px' }}>
                 {(ROLES[chartType] || []).map(role => (
                   <div key={role.key} style={{ marginBottom: 10 }}>
-                    <label style={{ display: 'block', fontSize: 10, color: '#888', marginBottom: 4, fontWeight: 600 }}>{role.label}</label>
+                    <label style={{ display: 'block', fontSize: 10, color: 'var(--color-muted)', marginBottom: 4, fontWeight: 600 }}>{role.label}</label>
                     <select
                       value={mappings[role.key] ?? -1}
                       onChange={e => setMappings(m => ({ ...m, [role.key]: +e.target.value }))}
-                      style={{ width: '100%', padding: '7px 8px', border: '1px solid #E0E0E0', borderRadius: 6, fontSize: 11, fontFamily: 'Helvetica, Arial, sans-serif', background: '#fff', color: '#111', outline: 'none', cursor: 'pointer' }}
+                      style={{ width: '100%', padding: '7px 8px', border: '1px solid var(--color-border)', borderRadius: 6, fontSize: 11, fontFamily: 'inherit', background: 'var(--color-bg)', color: 'var(--color-text)', outline: 'none', cursor: 'pointer' }}
                     >
                       <option value={-1}>— none —</option>
                       {(table?.headers || []).map((h, i) => (
@@ -625,12 +625,12 @@ function EditorInner() {
                   <FieldLabel>Primary color</FieldLabel>
                   <button
                     onClick={() => { setVis(v => ({ ...v, color: '#1D6EE8', opacity: 85, radius: 4, lineWidth: 2.5, pointSize: 4, barWidth: 'auto' })); setColorInput('#1D6EE8') }}
-                    style={{ fontSize: 9, color: '#AAA', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'Helvetica, Arial, sans-serif' }}
+                    style={{ fontSize: 9, color: 'var(--color-faint)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}
                   >Reset style</button>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
                   {SWATCHES.map(c => (
-                    <button key={c} onClick={() => { setVis(v => ({ ...v, color: c })); setColorInput(c) }} style={{ width: 24, height: 24, borderRadius: '50%', background: c, border: vis.color === c ? '2.5px solid #111' : '2.5px solid transparent', cursor: 'pointer', transform: vis.color === c ? 'scale(1.15)' : 'scale(1)', transition: 'all .1s' }} />
+                    <button key={c} onClick={() => { setVis(v => ({ ...v, color: c })); setColorInput(c) }} style={{ width: 24, height: 24, borderRadius: '50%', background: c, border: vis.color === c ? '2.5px solid var(--color-text)' : '2.5px solid transparent', cursor: 'pointer', transform: vis.color === c ? 'scale(1.15)' : 'scale(1)', transition: 'all .1s' }} />
                   ))}
                   <input
                     type="text"
@@ -640,19 +640,19 @@ function EditorInner() {
                       setColorInput(v)
                       if (/^#[0-9A-Fa-f]{6}$/.test(v)) setVis(prev => ({ ...prev, color: v }))
                     }}
-                    style={{ width: 70, padding: '4px 6px', border: '1px solid #E0E0E0', borderRadius: 4, fontSize: 10, fontFamily: 'monospace', background: '#fff', outline: 'none' }}
+                    style={{ width: 70, padding: '4px 6px', border: '1px solid var(--color-border)', borderRadius: 4, fontSize: 10, fontFamily: 'monospace', background: 'var(--color-bg)', color: 'var(--color-text)', outline: 'none' }}
                   />
                 </div>
 
                 {/* Opacity */}
                 <FieldLabel>Opacity — {vis.opacity}%</FieldLabel>
-                <input type="range" min={0} max={100} value={vis.opacity} onChange={e => setVis(v => ({ ...v, opacity: +e.target.value }))} style={{ width: '100%', marginBottom: 12, accentColor: '#1D6EE8' }} />
+                <input type="range" min={0} max={100} value={vis.opacity} onChange={e => setVis(v => ({ ...v, opacity: +e.target.value }))} style={{ width: '100%', marginBottom: 12, accentColor: 'var(--color-blue)' }} />
 
                 {/* Corner radius — only for chart types that have rounded bars */}
                 {caps.hasRadius && (
                   <>
                     <FieldLabel>Corner radius — {vis.radius}px</FieldLabel>
-                    <input type="range" min={0} max={16} value={vis.radius} onChange={e => setVis(v => ({ ...v, radius: +e.target.value }))} style={{ width: '100%', marginBottom: 12, accentColor: '#1D6EE8' }} />
+                    <input type="range" min={0} max={16} value={vis.radius} onChange={e => setVis(v => ({ ...v, radius: +e.target.value }))} style={{ width: '100%', marginBottom: 12, accentColor: 'var(--color-blue)' }} />
                   </>
                 )}
 
@@ -660,7 +660,7 @@ function EditorInner() {
                 {caps.hasLineWidth && (
                   <>
                     <FieldLabel>Line width — {vis.lineWidth ?? 2.5}</FieldLabel>
-                    <input type="range" min={1} max={5} step={0.5} value={vis.lineWidth ?? 2.5} onChange={e => setVis(v => ({ ...v, lineWidth: +e.target.value }))} style={{ width: '100%', marginBottom: 12, accentColor: '#1D6EE8' }} />
+                    <input type="range" min={1} max={5} step={0.5} value={vis.lineWidth ?? 2.5} onChange={e => setVis(v => ({ ...v, lineWidth: +e.target.value }))} style={{ width: '100%', marginBottom: 12, accentColor: 'var(--color-blue)' }} />
                   </>
                 )}
 
@@ -668,7 +668,7 @@ function EditorInner() {
                 {caps.hasPointSize && (
                   <>
                     <FieldLabel>Point size — {vis.pointSize ?? 4}</FieldLabel>
-                    <input type="range" min={0} max={8} step={1} value={vis.pointSize ?? 4} onChange={e => setVis(v => ({ ...v, pointSize: +e.target.value }))} style={{ width: '100%', marginBottom: 12, accentColor: '#1D6EE8' }} />
+                    <input type="range" min={0} max={8} step={1} value={vis.pointSize ?? 4} onChange={e => setVis(v => ({ ...v, pointSize: +e.target.value }))} style={{ width: '100%', marginBottom: 12, accentColor: 'var(--color-blue)' }} />
                   </>
                 )}
 
@@ -678,7 +678,7 @@ function EditorInner() {
                     <FieldLabel>Bar width</FieldLabel>
                     <div style={{ display: 'flex', gap: 4, marginBottom: 12 }}>
                       {(['narrow', 'auto', 'wide'] as const).map(bw => (
-                        <button key={bw} onClick={() => setVis(v => ({ ...v, barWidth: bw }))} style={{ flex: 1, padding: '5px 0', fontSize: 9, fontWeight: 600, borderRadius: 5, border: (vis.barWidth ?? 'auto') === bw ? '1.5px solid #1D6EE8' : '1.5px solid #E0E0E0', background: (vis.barWidth ?? 'auto') === bw ? '#EEF4FF' : '#fff', color: (vis.barWidth ?? 'auto') === bw ? '#1D6EE8' : '#666', cursor: 'pointer', fontFamily: 'Helvetica, Arial, sans-serif', textTransform: 'capitalize' }}>
+                        <button key={bw} onClick={() => setVis(v => ({ ...v, barWidth: bw }))} style={{ flex: 1, padding: '5px 0', fontSize: 9, fontWeight: 600, borderRadius: 5, border: (vis.barWidth ?? 'auto') === bw ? '1.5px solid var(--color-blue)' : '1.5px solid var(--color-border)', background: (vis.barWidth ?? 'auto') === bw ? 'var(--color-blue-bg)' : 'var(--color-bg)', color: (vis.barWidth ?? 'auto') === bw ? 'var(--color-blue)' : 'var(--color-muted)', cursor: 'pointer', fontFamily: 'inherit', textTransform: 'capitalize' }}>
                           {bw}
                         </button>
                       ))}
@@ -690,7 +690,7 @@ function EditorInner() {
                 <FieldLabel>Background</FieldLabel>
                 <div style={{ display: 'flex', gap: 4 }}>
                   {(['white', 'offwhite', 'dark', 'transparent'] as const).map(b => (
-                    <button key={b} onClick={() => setVis(v => ({ ...v, bg: b }))} style={{ flex: 1, padding: '5px 0', fontSize: 9, fontWeight: 600, borderRadius: 5, border: vis.bg === b ? '1.5px solid #1D6EE8' : '1.5px solid #E0E0E0', background: vis.bg === b ? '#EEF4FF' : '#fff', color: vis.bg === b ? '#1D6EE8' : '#666', cursor: 'pointer', fontFamily: 'Helvetica, Arial, sans-serif', textTransform: 'capitalize' }}>
+                    <button key={b} onClick={() => setVis(v => ({ ...v, bg: b }))} style={{ flex: 1, padding: '5px 0', fontSize: 9, fontWeight: 600, borderRadius: 5, border: vis.bg === b ? '1.5px solid var(--color-blue)' : '1.5px solid var(--color-border)', background: vis.bg === b ? 'var(--color-blue-bg)' : 'var(--color-bg)', color: vis.bg === b ? 'var(--color-blue)' : 'var(--color-muted)', cursor: 'pointer', fontFamily: 'inherit', textTransform: 'capitalize' }}>
                       {b === 'offwhite' ? 'Off-wh.' : b}
                     </button>
                   ))}
@@ -756,10 +756,10 @@ function EditorInner() {
           </div>
 
           {/* Right preview */}
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 32, overflowY: 'auto', background: '#F0F0F0' }}>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 32, overflowY: 'auto', background: 'var(--color-bg)' }}>
             <div style={{ width: '100%', maxWidth: 680 }}>
               {/* Chart card */}
-              <div style={{ background: cardBg, borderRadius: 12, padding: 24, boxShadow: '0 4px 24px rgba(0,0,0,.08)', color: cardText }}>
+              <div style={{ background: cardBg, borderRadius: 12, padding: 24, boxShadow: '0 4px 32px rgba(0,0,0,.4)', color: cardText }}>
                 {chartTitle && (
                   <div style={{ fontSize: 18, fontWeight: 700, marginBottom: chartSubtitle ? 4 : 12, color: cardText }}>{chartTitle}</div>
                 )}
@@ -785,10 +785,10 @@ function EditorInner() {
       {showExport && (
         <div
           onClick={e => { if (e.target === e.currentTarget) setShowExport(false) }}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.7)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
-          <div style={{ background: '#fff', borderRadius: 12, padding: 28, width: 400, fontFamily: 'Helvetica, Arial, sans-serif', boxShadow: '0 20px 60px rgba(0,0,0,.2)' }}>
-            <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 20 }}>Export chart</div>
+          <div style={{ background: 'var(--color-surface)', borderRadius: 12, padding: 28, width: 400, fontFamily: 'inherit', boxShadow: '0 20px 60px rgba(0,0,0,.6)', border: '1px solid var(--color-border)' }}>
+            <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 20, color: 'var(--color-text)' }}>Export chart</div>
 
             {/* Format */}
             <FieldLabel>Format</FieldLabel>
@@ -828,7 +828,7 @@ function EditorInner() {
             </div>
 
             {/* Preview label */}
-            <div style={{ fontSize: 10, color: '#888', background: '#F7F7F7', borderRadius: 6, padding: '7px 10px', marginBottom: 20, fontFamily: 'monospace' }}>
+            <div style={{ fontSize: 10, color: 'var(--color-muted)', background: 'var(--color-surface-2)', borderRadius: 6, padding: '7px 10px', marginBottom: 20, fontFamily: 'monospace' }}>
               {expFormat.toUpperCase()} · {expRes}× ({1200 * expRes}×{800 * expRes}px) · {expBg} bg · title {incTitle ? 'on' : 'off'}
             </div>
 
@@ -836,10 +836,10 @@ function EditorInner() {
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
               <button onClick={() => setShowExport(false)} style={navBtnStyle}>Cancel</button>
               {expFormat === 'svg' && (
-                <button onClick={downloadSVG} style={{ ...navBtnStyle, background: '#111', color: '#fff', borderColor: '#111' }}>↓ Download SVG</button>
+                <button onClick={downloadSVG} style={{ ...navBtnStyle, background: 'var(--color-text)', color: 'var(--color-bg)', borderColor: 'var(--color-text)' }}>↓ Download SVG</button>
               )}
               {expFormat === 'png' && (
-                <button onClick={downloadPNG} style={{ ...navBtnStyle, background: '#1D6EE8', color: '#fff', borderColor: '#1D6EE8' }}>↓ Download PNG</button>
+                <button onClick={downloadPNG} style={{ ...navBtnStyle, background: 'var(--color-blue)', color: 'var(--color-bg)', borderColor: 'var(--color-blue)' }}>↓ Download PNG</button>
               )}
             </div>
           </div>
@@ -857,20 +857,20 @@ function SectionHeader({ label, open, onToggle }: { label: string; open: boolean
       onClick={onToggle}
       style={{
         width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '10px 14px', background: 'none', border: 'none', borderBottom: '1px solid #F0F0F0',
-        cursor: 'pointer', fontSize: 11, fontWeight: 700, color: '#333',
-        fontFamily: 'Helvetica, Arial, sans-serif', textAlign: 'left',
+        padding: '10px 14px', background: 'none', border: 'none', borderBottom: '1px solid var(--color-border)',
+        cursor: 'pointer', fontSize: 11, fontWeight: 700, color: 'var(--color-text)',
+        fontFamily: 'inherit', textAlign: 'left',
       }}
     >
       {label}
-      <span style={{ fontSize: 10, color: '#AAA', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s', display: 'inline-block' }}>▾</span>
+      <span style={{ fontSize: 10, color: 'var(--color-faint)', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s', display: 'inline-block' }}>▾</span>
     </button>
   )
 }
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ fontSize: 10, color: '#888', fontWeight: 600, marginBottom: 5, marginTop: 2 }}>{children}</div>
+    <div style={{ fontSize: 10, color: 'var(--color-muted)', fontWeight: 600, marginBottom: 5, marginTop: 2 }}>{children}</div>
   )
 }
 
@@ -880,10 +880,10 @@ function ToggleBtn({ active, onClick, children }: { active: boolean; onClick: ()
       onClick={onClick}
       style={{
         padding: '5px 10px', fontSize: 10, fontWeight: 600, borderRadius: 5, cursor: 'pointer',
-        border: `1.5px solid ${active ? '#1D6EE8' : '#E0E0E0'}`,
-        background: active ? '#EEF4FF' : '#fff',
-        color: active ? '#1D6EE8' : '#666',
-        fontFamily: 'Helvetica, Arial, sans-serif',
+        border: `1.5px solid ${active ? 'var(--color-blue)' : 'var(--color-border)'}`,
+        background: active ? 'var(--color-blue-bg)' : 'var(--color-bg)',
+        color: active ? 'var(--color-blue)' : 'var(--color-muted)',
+        fontFamily: 'inherit',
         transition: 'all .1s',
       }}
     >
@@ -896,22 +896,22 @@ function ToggleBtn({ active, onClick, children }: { active: boolean; onClick: ()
 
 const navBtnStyle: React.CSSProperties = {
   padding: '6px 14px', fontSize: 12, fontWeight: 600, borderRadius: 7,
-  border: '1px solid #D8D8D8', background: '#fff', color: '#333',
-  cursor: 'pointer', fontFamily: 'Helvetica, Arial, sans-serif', transition: 'all .1s',
+  border: '1px solid var(--color-border-strong)', background: 'var(--color-surface)', color: 'var(--color-text)',
+  cursor: 'pointer', fontFamily: 'inherit', transition: 'all .1s',
 }
 
 const inputStyle: React.CSSProperties = {
-  width: '100%', boxSizing: 'border-box', padding: '7px 8px', border: '1px solid #E0E0E0',
-  borderRadius: 6, fontSize: 11, fontFamily: 'Helvetica, Arial, sans-serif',
-  background: '#fff', color: '#111', outline: 'none', marginBottom: 10,
+  width: '100%', boxSizing: 'border-box', padding: '7px 8px', border: '1px solid var(--color-border)',
+  borderRadius: 6, fontSize: 11, fontFamily: 'inherit',
+  background: 'var(--color-bg)', color: 'var(--color-text)', outline: 'none', marginBottom: 10,
 }
 
 const expBtnStyle: React.CSSProperties = {
   flex: 1, padding: '7px 0', fontSize: 11, fontWeight: 600, borderRadius: 6,
-  border: '1.5px solid #E0E0E0', background: '#fff', color: '#555',
-  cursor: 'pointer', fontFamily: 'Helvetica, Arial, sans-serif',
+  border: '1.5px solid var(--color-border)', background: 'var(--color-bg)', color: 'var(--color-muted)',
+  cursor: 'pointer', fontFamily: 'inherit',
 }
 
 const expBtnActive: React.CSSProperties = {
-  border: '1.5px solid #1D6EE8', background: '#EEF4FF', color: '#1D6EE8',
+  border: '1.5px solid var(--color-blue)', background: 'var(--color-blue-bg)', color: 'var(--color-blue)',
 }
